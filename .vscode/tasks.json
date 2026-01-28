@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Development Servers",
+      "type": "shell",
+      "command": "npm run dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Start Frontend Only",
+      "type": "shell",
+      "command": "npm run dev:frontend",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Backend Only",
+      "type": "shell",
+      "command": "npm run dev:backend",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Frontend",
+      "type": "shell",
+      "command": "npm run build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
