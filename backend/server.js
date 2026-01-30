@@ -5,7 +5,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
-import sharp from 'sharp'
+import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -159,15 +159,15 @@ async function generateThumbnail(filePath, fileType) {
     const thumbnailPath = path.join(uploadsDir, thumbnailName)
 
     if (fileType === 'image') {
-      // For images, resize to thumbnail
-      await sharp(filePath)
-        .resize(400, 600, { fit: 'cover' })
-        .jpeg({ quality: 80 })
-        .toFile(thumbnailPath)
+      // For images, resize to thumbnail using Jimp (pure JS)
+      const image = await Jimp.read(filePath)
+      await image
+        .cover(400, 600) // Resize with cover (similar to sharp's fit: 'cover')
+        .quality(80)
+        .writeAsync(thumbnailPath)
       return thumbnailName
     } else if (fileType === 'pdf') {
-      // For PDFs, render first page (simplified - requires canvas)
-      // For now, return null and we'll use a placeholder
+      // For PDFs, return null and use a placeholder
       return null
     } else if (fileType === 'text') {
       // For text files, return null (use placeholder)
