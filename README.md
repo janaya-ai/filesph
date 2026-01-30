@@ -208,13 +208,27 @@ npm run build
 ```
 Output will be in `frontend/dist/`
 
+For production deployment where backend is on a different domain:
+```bash
+cd frontend
+VITE_API_URL=https://your-backend-url.com npm run build
+```
+
 ### Backend
 - Can be deployed to any Node.js hosting (Heroku, Railway, Render, etc.)
 - Set environment variable `PORT` if needed
 - Ensure `uploads/` directory is persistent
 
 ### Environment Variables
+
+#### Backend
 - `PORT` - Backend server port (default: 3001)
+
+#### Frontend (Build Time)
+- `VITE_API_URL` - Backend URL for production deployment (optional)
+  - If not set: Uses `/api` (works with Vite dev proxy)
+  - If set: Uses `${VITE_API_URL}/api` (e.g., `https://your-backend.com/api`)
+  - Example: `VITE_API_URL=https://api.example.com npm run build`
 
 ## 📦 Tech Stack
 
@@ -264,9 +278,10 @@ taskkill /PID <PID> /F
 - Check backend logs for errors
 
 ### Frontend Can't Connect to Backend
-- Verify backend is running on port 3001
-- Check proxy settings in `vite.config.ts`
-- Ensure CORS is enabled in backend
+- **Development**: Verify backend is running on port 3001
+- **Development**: Check proxy settings in `vite.config.ts`
+- **Production**: Ensure `VITE_API_URL` is set correctly during build
+- **Both**: Ensure CORS is enabled in backend
 
 ## 📝 License
 
