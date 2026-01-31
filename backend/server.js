@@ -19,9 +19,21 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
 // CORS configuration
-const allowedOrigins = process.env.FRONTEND_URL 
-  ? [process.env.FRONTEND_URL] 
-  : ['http://localhost:5173']
+const allowedOrigins = []
+
+if (process.env.FRONTEND_URL) {
+  try {
+    // Validate FRONTEND_URL is a valid URL
+    new URL(process.env.FRONTEND_URL)
+    allowedOrigins.push(process.env.FRONTEND_URL)
+  } catch (error) {
+    console.warn('Invalid FRONTEND_URL environment variable:', process.env.FRONTEND_URL)
+    allowedOrigins.push('http://localhost:5173')
+  }
+} else {
+  // Default to localhost for development
+  allowedOrigins.push('http://localhost:5173')
+}
 
 app.use(cors({
   origin: allowedOrigins,

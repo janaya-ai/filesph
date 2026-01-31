@@ -1,4 +1,18 @@
 services:
+  # Frontend Static Site
+  - type: web
+    name: filesph-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: filesph-backend
+          property: url
+    
   # Backend API Service
   - type: web
     name: filesph-backend
@@ -12,18 +26,7 @@ services:
       - key: PORT
         value: 10000
       - key: FRONTEND_URL
-        generateValue: true
-    
-  # Frontend Static Site
-  - type: web
-    name: filesph-frontend
-    env: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: VITE_API_URL
         fromService:
           type: web
-          name: filesph-backend
+          name: filesph-frontend
           property: url
