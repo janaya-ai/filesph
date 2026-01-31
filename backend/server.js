@@ -19,6 +19,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
 // CORS configuration
+const FALLBACK_ORIGIN = 'http://localhost:5173'
 const allowedOrigins = []
 
 if (process.env.FRONTEND_URL) {
@@ -28,23 +29,21 @@ if (process.env.FRONTEND_URL) {
     allowedOrigins.push(process.env.FRONTEND_URL)
     console.log('CORS configured for origin:', process.env.FRONTEND_URL)
   } catch (error) {
-    const fallbackOrigin = 'http://localhost:5173'
-    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${fallbackOrigin}`)
+    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
     
     // In production, this is a critical error
     if (process.env.NODE_ENV === 'production') {
       console.error('ERROR: Invalid FRONTEND_URL in production environment. CORS will not work correctly.')
     }
     
-    allowedOrigins.push(fallbackOrigin)
+    allowedOrigins.push(FALLBACK_ORIGIN)
   }
 } else {
   // Default to localhost for development
-  const fallbackOrigin = 'http://localhost:5173'
   if (process.env.NODE_ENV === 'production') {
-    console.warn('WARNING: FRONTEND_URL not set in production environment. Using default:', fallbackOrigin)
+    console.warn('WARNING: FRONTEND_URL not set in production environment. Using default:', FALLBACK_ORIGIN)
   }
-  allowedOrigins.push(fallbackOrigin)
+  allowedOrigins.push(FALLBACK_ORIGIN)
 }
 
 app.use(cors({
