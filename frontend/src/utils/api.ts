@@ -63,5 +63,11 @@ export const api = {
   // Files
   getFileUrl(filename: string): string {
     return `${API_BASE}/files/${filename}`
+  },
+
+  // Authentication
+  async login(password: string): Promise<{ token: string; success: boolean }> {
+    const response = await axios.post(`${API_BASE}/auth/login`, { password })
+    return response.data
   }
 }
