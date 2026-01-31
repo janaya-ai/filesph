@@ -18,8 +18,52 @@ const PORT = process.env.PORT || 3001
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
+// CORS configuration
+// FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
+// Production environments will always use HTTPS via FRONTEND_URL env variable
+const FALLBACK_ORIGIN = 'http://localhost:5173'
+const allowedOrigins = []
+
+if (process.env.FRONTEND_URL) {
+  try {
+    // Validate FRONTEND_URL is a valid URL
+    new URL(process.env.FRONTEND_URL)
+    allowedOrigins.push(process.env.FRONTEND_URL)
+    console.log('CORS configured for origin:', process.env.FRONTEND_URL)
+  } catch (error) {
+    // In production, invalid FRONTEND_URL is a fatal error
+    if (process.env.NODE_ENV === 'production') {
+      console.error(`FATAL ERROR: Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`)
+      console.error('Application cannot start with invalid FRONTEND_URL in production.')
+      process.exit(1)
+    }
+    
+    // In development, fall back to localhost
+    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
+    allowedOrigins.push(FALLBACK_ORIGIN)
+  }
+} else {
+  // In production, missing FRONTEND_URL is a fatal error
+  if (process.env.NODE_ENV === 'production') {
+    console.error('FATAL ERROR: FRONTEND_URL environment variable is not set.')
+    console.error('Application cannot start without FRONTEND_URL in production.')
+    process.exit(1)
+  }
+  
+  // In development, use localhost
+  console.log('Using default CORS origin for development:', FALLBACK_ORIGIN)
+  allowedOrigins.push(FALLBACK_ORIGIN)
+}
+
+// Enable CORS with credentials support for authentication
+// credentials: true allows cookies and authorization headers
+// This is safe because allowedOrigins is strictly validated above
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}))
+
 // Middleware
-app.use(cors())
 app.use(express.json())
 
 // Allow iframe embedding

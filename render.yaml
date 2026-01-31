@@ -1,0 +1,29 @@
+services:
+  # Backend API Service
+  - type: web
+    name: filesph-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Note: FRONTEND_URL must be added manually after frontend deployment
+      # The backend will fail to start without it (security feature)
+      # Add it via: Dashboard > Backend Service > Environment > Add Variable
+      # Value should be: https://filesph-frontend.onrender.com
+    
+  # Frontend Static Site
+  - type: web
+    name: filesph-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: filesph-backend
+          property: url
