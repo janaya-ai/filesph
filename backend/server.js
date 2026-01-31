@@ -18,8 +18,17 @@ const PORT = process.env.PORT || 3001
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
+// CORS configuration
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? [process.env.FRONTEND_URL] 
+  : ['http://localhost:5173']
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}))
+
 // Middleware
-app.use(cors())
 app.use(express.json())
 
 // Allow iframe embedding
