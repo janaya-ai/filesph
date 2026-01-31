@@ -1,4 +1,15 @@
 services:
+  # Backend API Service
+  - type: web
+    name: filesph-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    
   # Frontend Static Site
   - type: web
     name: filesph-frontend
@@ -11,20 +22,4 @@ services:
         fromService:
           type: web
           name: filesph-backend
-          property: url
-    
-  # Backend API Service
-  - type: web
-    name: filesph-backend
-    env: node
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: filesph-frontend
           property: url

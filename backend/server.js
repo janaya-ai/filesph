@@ -29,20 +29,27 @@ if (process.env.FRONTEND_URL) {
     allowedOrigins.push(process.env.FRONTEND_URL)
     console.log('CORS configured for origin:', process.env.FRONTEND_URL)
   } catch (error) {
-    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
-    
-    // In production, this is a critical error
+    // In production, invalid FRONTEND_URL is a fatal error
     if (process.env.NODE_ENV === 'production') {
-      console.error('ERROR: Invalid FRONTEND_URL in production environment. CORS will not work correctly.')
+      console.error(`FATAL ERROR: Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`)
+      console.error('Application cannot start with invalid FRONTEND_URL in production.')
+      process.exit(1)
     }
     
+    // In development, fall back to localhost
+    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
     allowedOrigins.push(FALLBACK_ORIGIN)
   }
 } else {
-  // Default to localhost for development
+  // In production, missing FRONTEND_URL is a fatal error
   if (process.env.NODE_ENV === 'production') {
-    console.warn('WARNING: FRONTEND_URL not set in production environment. Using default:', FALLBACK_ORIGIN)
+    console.error('FATAL ERROR: FRONTEND_URL environment variable is not set.')
+    console.error('Application cannot start without FRONTEND_URL in production.')
+    process.exit(1)
   }
+  
+  // In development, use localhost
+  console.log('Using default CORS origin for development:', FALLBACK_ORIGIN)
   allowedOrigins.push(FALLBACK_ORIGIN)
 }
 
