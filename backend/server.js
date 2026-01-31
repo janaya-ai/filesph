@@ -19,6 +19,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
 // CORS configuration
+// FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
+// Production environments will always use HTTPS via FRONTEND_URL env variable
 const FALLBACK_ORIGIN = 'http://localhost:5173'
 const allowedOrigins = []
 
@@ -53,6 +55,9 @@ if (process.env.FRONTEND_URL) {
   allowedOrigins.push(FALLBACK_ORIGIN)
 }
 
+// Enable CORS with credentials support for authentication
+// credentials: true allows cookies and authorization headers
+// This is safe because allowedOrigins is strictly validated above
 app.use(cors({
   origin: allowedOrigins,
   credentials: true

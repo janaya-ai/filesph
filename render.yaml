@@ -9,6 +9,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Note: FRONTEND_URL must be added manually after frontend deployment
+      # The backend will fail to start without it (security feature)
+      # Add it via: Dashboard > Backend Service > Environment > Add Variable
+      # Value should be: https://filesph-frontend.onrender.com
     
   # Frontend Static Site
   - type: web
