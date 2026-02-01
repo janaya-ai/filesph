@@ -72,13 +72,56 @@ This guide explains how to deploy the filesph application to Render.
 2. Visit your frontend URL to test the application
 3. Check logs in Render dashboard if there are any issues
 
+## Persistent Storage Configuration
+
+**Important**: By default, uploaded files and data are stored in ephemeral storage that is lost when the container restarts or redeploys. To persist your data, you must configure persistent storage.
+
+### Render (Persistent Disk)
+
+1. Go to your backend service (`filesph-backend`) in the Render dashboard
+2. Click "Disks" in the left sidebar
+3. Click "Add Disk"
+4. Configure the disk:
+   - **Name**: `filesph-data`
+   - **Mount Path**: `/var/data`
+   - **Size**: Choose based on your needs (minimum 1 GB recommended)
+5. Click "Save"
+6. Add environment variable:
+   - Go to "Environment" in the left sidebar
+   - Add: `STORAGE_PATH` = `/var/data`
+   - Click "Save Changes"
+7. The service will redeploy with persistent storage enabled
+
+### Railway (Volume Mount)
+
+1. Go to your Railway project dashboard
+2. Click on your backend service
+3. Go to the "Variables" tab
+4. Add: `STORAGE_PATH` = `/var/data`
+5. Go to the "Settings" tab
+6. Under "Deploy" section, add a volume:
+   - **Mount Path**: `/var/data`
+   - **Size**: Choose based on your needs
+7. Click "Deploy" to apply changes
+
+### Other Platforms
+
+For other deployment platforms, set the `STORAGE_PATH` environment variable to point to a persistent volume mount path. The application will store:
+- `data.json` - Document and category metadata
+- `uploads/` - Uploaded files and thumbnails
+
 ## Important Notes
 
 - Free tier services on Render may spin down after inactivity
 - First request after spin-down may take 30-60 seconds
 - For production use, consider upgrading to paid tier for better performance
+- **Data persistence requires a paid plan on most platforms** (free tiers typically have ephemeral storage)
 
 ## Troubleshooting
+
+### Uploaded Documents Disappear After a Few Hours
+- **Cause**: Persistent storage is not configured. The default storage location is ephemeral and is lost when the container restarts.
+- **Solution**: Configure persistent storage as described in the "Persistent Storage Configuration" section above.
 
 ### Backend Fails to Start on Initial Deployment
 - **Cause**: FRONTEND_URL environment variable is not set

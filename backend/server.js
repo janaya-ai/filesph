@@ -14,6 +14,11 @@ const __dirname = path.dirname(__filename)
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Storage path configuration
+// Use STORAGE_PATH env variable for persistent storage in production
+// Falls back to backend directory for local development
+const storagePath = process.env.STORAGE_PATH || __dirname
+
 // Admin credentials (in production, use environment variables and proper hashing)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -73,11 +78,20 @@ app.use((req, res, next) => {
   next()
 })
 
-app.use('/api/files', express.static(path.join(__dirname, 'uploads')))
+app.use('/api/files', express.static(path.join(storagePath, 'uploads')))
 
 // Ensure directories exist
-const uploadsDir = path.join(__dirname, 'uploads')
-const dataFile = path.join(__dirname, 'data.json')
+const uploadsDir = path.join(storagePath, 'uploads')
+const dataFile = path.join(storagePath, 'data.json')
+
+// Log storage configuration (only in development for security)
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`Storage path configured: ${storagePath}`)
+  console.log(`Uploads directory: ${uploadsDir}`)
+  console.log(`Data file: ${dataFile}`)
+} else {
+  console.log('Storage path configured from STORAGE_PATH environment variable')
+}
 
 await fs.mkdir(uploadsDir, { recursive: true })
 
