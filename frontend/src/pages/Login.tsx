@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Lock, FileText } from 'lucide-react'
+import { api } from '../utils/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -14,22 +15,20 @@ export default function Login() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        localStorage.setItem('adminToken', data.token)
-        navigate('/admin')
-      } else {
-        setError(data.error || 'Invalid password')
-      }
+      const data = await api.login(password)
+      localStorage.setItem('adminToken', data.token)
+      navigate('/admin')
     } catch (err) {
-      setError('Failed to connect to server')
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { status?: number; data?: { error?: string } } }
+        if (axiosError.response?.status === 401) {
+          setError(axiosError.response?.data?.error || 'Invalid password')
+        } else {
+          setError('Login failed. Please try again.')
+        }
+      } else {
+        setError('Failed to connect to server')
+      }
     } finally {
       setLoading(false)
     }

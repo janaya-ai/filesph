@@ -6,6 +6,12 @@ const API_BASE = import.meta.env.VITE_API_URL
   : '/api'
 
 export const api = {
+  // Authentication
+  async login(password: string): Promise<{ token: string; success: boolean }> {
+    const response = await axios.post(`${API_BASE}/auth/login`, { password })
+    return response.data
+  },
+
   // Documents
   async getDocuments(): Promise<Document[]> {
     const response = await axios.get(`${API_BASE}/documents`)
