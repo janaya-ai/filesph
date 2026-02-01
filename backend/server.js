@@ -727,6 +727,25 @@ app.get('/api/documents/:id/download', async (req, res) => {
   }
 })
 
+// Storage status endpoint - helps detect if persistent storage is configured
+app.get('/api/storage-status', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production'
+  const hasStoragePath = !!process.env.STORAGE_PATH
+  
+  // In production, if STORAGE_PATH is not set, we're using ephemeral storage
+  // which means data will be lost when the container restarts
+  const isPersistent = !isProduction || hasStoragePath
+  
+  res.json({
+    persistent: isPersistent,
+    storagePath: hasStoragePath ? 'configured' : 'default',
+    environment: isProduction ? 'production' : 'development',
+    warning: !isPersistent ? 
+      'Data is stored in ephemeral storage and will be lost when the server restarts. Configure STORAGE_PATH with a persistent volume to prevent data loss.' : 
+      null
+  })
+})
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
 })

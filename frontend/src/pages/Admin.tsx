@@ -10,7 +10,8 @@ import {
   Edit,
   Plus,
   X,
-  LogOut
+  LogOut,
+  AlertTriangle
 } from 'lucide-react'
 import { api } from '../utils/api'
 import type { Document, Category } from '../types'
@@ -21,6 +22,7 @@ export default function Admin() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [storageWarning, setStorageWarning] = useState<string | null>(null)
 
   // Check authentication on mount
   useEffect(() => {
@@ -30,7 +32,20 @@ export default function Admin() {
       return
     }
     loadData()
+    checkStorageStatus()
   }, [])
+
+  const checkStorageStatus = async () => {
+    try {
+      const status = await api.getStorageStatus()
+      if (status.warning) {
+        setStorageWarning(status.warning)
+      }
+    } catch (error) {
+      // Silently fail - don't block the admin UI for this check
+      console.error('Failed to check storage status:', error)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken')
@@ -302,6 +317,42 @@ export default function Admin() {
           </div>
         </div>
       </header>
+
+      {/* Storage Warning Banner */}
+      {storageWarning && (
+        <div className="bg-amber-50 border-l-4 border-amber-400">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-amber-800">
+                  Warning: Ephemeral Storage Detected
+                </h3>
+                <p className="mt-1 text-sm text-amber-700">
+                  {storageWarning}
+                </p>
+                <p className="mt-2 text-sm text-amber-700">
+                  <a 
+                    href="https://github.com/janaya-ai/filesph/blob/main/DEPLOYMENT.md#persistent-storage-configuration" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="font-medium underline hover:text-amber-800"
+                  >
+                    Learn how to configure persistent storage →
+                  </a>
+                </p>
+              </div>
+              <button
+                onClick={() => setStorageWarning(null)}
+                className="ml-auto flex-shrink-0"
+                aria-label="Dismiss storage warning"
+              >
+                <X className="h-5 w-5 text-amber-400 hover:text-amber-500" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
