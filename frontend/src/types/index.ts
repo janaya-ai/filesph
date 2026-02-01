@@ -8,8 +8,13 @@ export interface Document {
   categories: string[]
   featured: boolean
   createdAt: string
+  releaseDate?: string
+  deadline?: string
   totalPages: number
   thumbnail?: string
+  views?: number
+  downloads?: number
+  sourceAgency?: string
 }
 
 export interface DocumentFile {

@@ -23,13 +23,37 @@ export const api = {
     return response.data
   },
 
-  async uploadDocument(files: File[], categories: string[], featured: boolean, description?: string, tags?: string[]): Promise<Document> {
+  async getPopularDocuments(limit: number = 5): Promise<Document[]> {
+    const response = await axios.get(`${API_BASE}/documents/stats/popular?limit=${limit}`)
+    return response.data
+  },
+
+  async getRecentDocuments(limit: number = 5): Promise<Document[]> {
+    const response = await axios.get(`${API_BASE}/documents/stats/recent?limit=${limit}`)
+    return response.data
+  },
+
+  async trackView(id: string): Promise<{ views: number }> {
+    const response = await axios.post(`${API_BASE}/documents/${id}/view`)
+    return response.data
+  },
+
+  async trackDownload(id: string): Promise<{ downloads: number }> {
+    const response = await axios.post(`${API_BASE}/documents/${id}/download`)
+    return response.data
+  },
+
+  async uploadDocument(files: File[], name: string, categories: string[], featured: boolean, description?: string, tags?: string[], releaseDate?: string, deadline?: string, sourceAgency?: string): Promise<Document> {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
+    formData.append('name', name)
     formData.append('categories', JSON.stringify(categories))
     formData.append('featured', String(featured))
     if (description) formData.append('description', description)
     if (tags && tags.length > 0) formData.append('tags', JSON.stringify(tags))
+    if (releaseDate) formData.append('releaseDate', releaseDate)
+    if (deadline) formData.append('deadline', deadline)
+    if (sourceAgency) formData.append('sourceAgency', sourceAgency)
 
     const response = await axios.post(`${API_BASE}/documents`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
@@ -64,6 +88,16 @@ export const api = {
 
   async deleteCategory(id: string): Promise<void> {
     await axios.delete(`${API_BASE}/categories/${id}`)
+  },
+
+  // Thumbnails
+  async uploadThumbnail(documentId: string, file: File): Promise<{ thumbnail: string }> {
+    const formData = new FormData()
+    formData.append('thumbnail', file)
+    const response = await axios.post(`${API_BASE}/documents/${documentId}/thumbnail`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
   },
 
   // Files

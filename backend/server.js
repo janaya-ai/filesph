@@ -176,7 +176,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.txt']
+    const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.txt', '.csv']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowedTypes.includes(ext)) {
       cb(null, true)
@@ -192,7 +192,7 @@ function getFileType(filename) {
   const ext = path.extname(filename).toLowerCase()
   if (ext === '.pdf') return 'pdf'
   if (['.jpg', '.jpeg', '.png'].includes(ext)) return 'image'
-  if (ext === '.txt') return 'text'
+  if (['.txt', '.csv'].includes(ext)) return 'text'
   return 'unknown'
 }
 
@@ -288,6 +288,9 @@ app.post('/api/documents', upload.array('files', 10), async (req, res) => {
     const featured = req.body.featured === 'true'
     const description = req.body.description || ''
     const tags = req.body.tags ? JSON.parse(req.body.tags) : []
+    const releaseDate = req.body.releaseDate || null
+    const deadline = req.body.deadline || null
+    const sourceAgency = req.body.sourceAgency || null
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' })
@@ -309,9 +312,14 @@ app.post('/api/documents', upload.array('files', 10), async (req, res) => {
       return sum + (file.pageCount || 1)
     }, 0)
 
-    // Generate thumbnail from first file
-    const firstFile = documentFiles[0]
-    const thumbnail = await generateThumbnail(firstFile.path, firstFile.type)
+    // Generate thumbnail from first image file found
+    let thumbnail = null
+    for (const file of documentFiles) {
+      if (file.type === 'image') {
+        thumbnail = await generateThumbnail(file.path, file.type)
+        if (thumbnail) break
+      }
+    }
 
     // Generate unique slug
     const data = await readData()
@@ -329,8 +337,13 @@ app.post('/api/documents', upload.array('files', 10), async (req, res) => {
       categories,
       featured,
       createdAt: new Date().toISOString(),
+      releaseDate,
+      deadline,
       totalPages,
-      thumbnail
+      thumbnail,
+      views: 0,
+      downloads: 0,
+      sourceAgency
     }
 
     data.documents.push(newDocument)
@@ -389,6 +402,133 @@ app.patch('/api/documents/:id', async (req, res) => {
     res.json(updatedDoc)
   } catch (error) {
     res.status(500).json({ error: 'Failed to update document' })
+  }
+})
+
+// Upload thumbnail for a document
+app.post('/api/documents/:id/thumbnail', upload.single('thumbnail'), async (req, res) => {
+  try {
+    const data = await readData()
+    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id)
+    
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No thumbnail file uploaded' })
+    }
+
+    const fileType = getFileType(req.file.filename)
+    if (fileType !== 'image') {
+      await fs.unlink(req.file.path)
+      return res.status(400).json({ error: 'Thumbnail must be an image file' })
+    }
+
+    // Generate thumbnail from uploaded image
+    const thumbnail = await generateThumbnail(req.file.path, 'image')
+    
+    // Delete the original uploaded file since we created a resized thumbnail
+    try {
+      await fs.unlink(req.file.path)
+    } catch (err) {
+      console.error('Failed to delete original thumbnail upload:', err)
+    }
+
+    // Delete old thumbnail if exists
+    const oldDoc = data.documents[docIndex]
+    if (oldDoc.thumbnail) {
+      try {
+        await fs.unlink(path.join(uploadsDir, oldDoc.thumbnail))
+      } catch (err) {
+        console.error('Failed to delete old thumbnail:', err)
+      }
+    }
+
+    // Update document with new thumbnail
+    data.documents[docIndex].thumbnail = thumbnail
+    await writeData(data)
+    
+    res.json({ thumbnail, message: 'Thumbnail updated successfully' })
+  } catch (error) {
+    console.error('Thumbnail upload error:', error)
+    res.status(500).json({ error: 'Failed to upload thumbnail' })
+  }
+})
+
+// Track document view
+app.post('/api/documents/:id/view', async (req, res) => {
+  try {
+    const data = await readData()
+    const identifier = req.params.id
+    const docIndex = data.documents.findIndex(doc => doc.id === identifier || doc.slug === identifier)
+    
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    // Increment view count
+    data.documents[docIndex].views = (data.documents[docIndex].views || 0) + 1
+    await writeData(data)
+    
+    res.json({ views: data.documents[docIndex].views })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to track view' })
+  }
+})
+
+// Track document download
+app.post('/api/documents/:id/download', async (req, res) => {
+  try {
+    const data = await readData()
+    const identifier = req.params.id
+    const docIndex = data.documents.findIndex(doc => doc.id === identifier || doc.slug === identifier)
+    
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    // Increment download count
+    data.documents[docIndex].downloads = (data.documents[docIndex].downloads || 0) + 1
+    await writeData(data)
+    
+    res.json({ downloads: data.documents[docIndex].downloads })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to track download' })
+  }
+})
+
+// Get popular documents (top 10 by views)
+app.get('/api/documents/stats/popular', async (req, res) => {
+  try {
+    const data = await readData()
+    const limit = parseInt(req.query.limit) || 10
+    
+    const popularDocs = [...data.documents]
+      .sort((a, b) => ((b.views || 0) + (b.downloads || 0)) - ((a.views || 0) + (a.downloads || 0)))
+      .slice(0, limit)
+      .map(formatDocumentForResponse)
+    
+    res.json(popularDocs)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch popular documents' })
+  }
+})
+
+// Get recent documents
+app.get('/api/documents/stats/recent', async (req, res) => {
+  try {
+    const data = await readData()
+    const limit = parseInt(req.query.limit) || 5
+    
+    const recentDocs = [...data.documents]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit)
+      .map(formatDocumentForResponse)
+    
+    res.json(recentDocs)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch recent documents' })
   }
 })
 
