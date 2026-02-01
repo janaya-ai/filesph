@@ -103,5 +103,11 @@ export const api = {
   // Files
   getFileUrl(filename: string): string {
     return `${API_BASE}/files/${filename}`
+  },
+
+  // Storage status
+  async getStorageStatus(): Promise<{ persistent: boolean; warning: string | null }> {
+    const response = await axios.get(`${API_BASE}/storage-status`)
+    return response.data
   }
 }
