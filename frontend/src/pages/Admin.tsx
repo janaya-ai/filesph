@@ -345,6 +345,7 @@ export default function Admin() {
               <button
                 onClick={() => setStorageWarning(null)}
                 className="ml-auto flex-shrink-0"
+                aria-label="Dismiss storage warning"
               >
                 <X className="h-5 w-5 text-amber-400 hover:text-amber-500" />
               </button>
