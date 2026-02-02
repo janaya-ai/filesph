@@ -85,7 +85,9 @@ async function generatePdfThumbnail(pdfUrl) {
     
     // Load the PDF with pdf.js
     // Configure standardFontDataUrl to use the fonts included with pdfjs-dist
-    const standardFontDataUrl = path.join(__dirname, 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/'
+    // Use import.meta.resolve for robust path resolution across different environments
+    const pdfjsDistPath = path.dirname(fileURLToPath(import.meta.resolve('pdfjs-dist/package.json')))
+    const standardFontDataUrl = path.join(pdfjsDistPath, 'standard_fonts') + '/'
     const loadingTask = pdfjsLib.getDocument({ 
       data: pdfData,
       standardFontDataUrl: standardFontDataUrl,
