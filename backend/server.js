@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
+import archiver from 'archiver'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -115,6 +116,181 @@ app.get('/api/proxy', async (req, res) => {
   } catch (error) {
     console.error('Proxy error:', error)
     res.status(500).json({ error: 'Failed to proxy file' })
+  }
+})
+
+// Helper function to extract filename from URL
+function getFilenameFromUrl(url) {
+  try {
+    const urlObj = new URL(url)
+    const pathname = urlObj.pathname
+    const filename = pathname.split('/').pop() || 'document'
+    // Decode URI component to handle encoded characters
+    return decodeURIComponent(filename)
+  } catch {
+    return 'document'
+  }
+}
+
+// Download single file from R2 (proxied through backend)
+app.get('/api/download/:docId/:fileIndex?', async (req, res) => {
+  const { docId, fileIndex } = req.params
+  
+  try {
+    const data = await readData()
+    const document = data.documents.find(doc => doc.id === docId || doc.slug === docId)
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+    
+    // Get file URLs from document
+    let fileUrls = []
+    if (document.fileUrls && document.fileUrls.length > 0) {
+      fileUrls = document.fileUrls
+    } else if (document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    } else if (document.files && document.files.length > 0) {
+      // Legacy local files - redirect to direct download
+      const idx = parseInt(fileIndex) || 0
+      if (idx >= 0 && idx < document.files.length) {
+        const file = document.files[idx]
+        return res.redirect(`/api/files/${file.filename}`)
+      }
+      return res.status(400).json({ error: 'Invalid file index' })
+    } else {
+      return res.status(400).json({ error: 'No files available for download' })
+    }
+    
+    // Get file by index (default to 0)
+    const idx = parseInt(fileIndex) || 0
+    if (idx < 0 || idx >= fileUrls.length) {
+      return res.status(400).json({ error: 'Invalid file index' })
+    }
+    
+    const fileUrl = fileUrls[idx]
+    
+    // Validate URL
+    const parsedUrl = new URL(fileUrl)
+    if (parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Only HTTPS URLs are allowed' })
+    }
+    
+    // Fetch file from R2
+    const response = await fetch(fileUrl)
+    
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch file from storage' })
+    }
+    
+    // Get filename and content type
+    const filename = getFilenameFromUrl(fileUrl)
+    const contentType = response.headers.get('content-type') || 'application/octet-stream'
+    
+    // Set headers for download
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    
+    // Stream the file
+    const buffer = await response.arrayBuffer()
+    res.send(Buffer.from(buffer))
+    
+    // Track download
+    document.downloads = (document.downloads || 0) + 1
+    await writeData(data)
+  } catch (error) {
+    console.error('Download error:', error)
+    res.status(500).json({ error: 'Failed to download file' })
+  }
+})
+
+// Download all files as ZIP
+app.get('/api/download-all/:docId', async (req, res) => {
+  const { docId } = req.params
+  
+  try {
+    const data = await readData()
+    const document = data.documents.find(doc => doc.id === docId || doc.slug === docId)
+    
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+    
+    // Get file URLs from document
+    let fileUrls = []
+    if (document.fileUrls && document.fileUrls.length > 0) {
+      fileUrls = document.fileUrls
+    } else if (document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    } else if (document.files && document.files.length > 0) {
+      // Legacy local files
+      fileUrls = document.files.map(f => `/api/files/${f.filename}`)
+    } else {
+      return res.status(400).json({ error: 'No files available for download' })
+    }
+    
+    if (fileUrls.length === 1) {
+      // Single file - redirect to single download
+      return res.redirect(`/api/download/${docId}/0`)
+    }
+    
+    // Create ZIP archive
+    const archive = archiver('zip', { zlib: { level: 5 } })
+    
+    // Generate ZIP filename from document name
+    const zipFilename = `${document.name.replace(/[^a-z0-9]/gi, '_')}.zip`
+    
+    // Set headers for ZIP download
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`)
+    
+    // Pipe archive to response
+    archive.pipe(res)
+    
+    // Add each file to the archive
+    for (let i = 0; i < fileUrls.length; i++) {
+      const fileUrl = fileUrls[i]
+      
+      try {
+        let fileBuffer
+        let filename
+        
+        if (fileUrl.startsWith('/api/files/')) {
+          // Legacy local file
+          const localFilename = fileUrl.replace('/api/files/', '')
+          const localPath = path.join(uploadsDir, localFilename)
+          fileBuffer = await fs.readFile(localPath)
+          filename = localFilename
+        } else {
+          // R2 file
+          const response = await fetch(fileUrl)
+          if (!response.ok) {
+            console.error(`Failed to fetch file ${i}: ${fileUrl}`)
+            continue
+          }
+          const arrayBuffer = await response.arrayBuffer()
+          fileBuffer = Buffer.from(arrayBuffer)
+          filename = getFilenameFromUrl(fileUrl)
+        }
+        
+        // Add file to archive with numbered prefix to avoid name conflicts
+        const archiveFilename = `${i + 1}_${filename}`
+        archive.append(fileBuffer, { name: archiveFilename })
+      } catch (fileError) {
+        console.error(`Error adding file ${i} to archive:`, fileError)
+        // Continue with other files
+      }
+    }
+    
+    // Finalize archive
+    await archive.finalize()
+    
+    // Track download
+    document.downloads = (document.downloads || 0) + 1
+    await writeData(data)
+  } catch (error) {
+    console.error('Download all error:', error)
+    res.status(500).json({ error: 'Failed to create ZIP archive' })
   }
 })
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code, ChevronLeft, ChevronRight, FileArchive } from 'lucide-react'
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
@@ -77,21 +77,17 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   const handleDownload = () => {
     if (!document) return
     
-    // Download current file for R2 documents
-    if (currentFileUrl) {
-      window.open(currentFileUrl, '_blank')
-      return
-    }
+    // Use backend download route (proxies R2 and hides URL)
+    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download/${document.slug || document.id}/${currentFileIndex}`
+    window.open(downloadUrl, '_blank')
+  }
+
+  const handleDownloadAll = () => {
+    if (!document) return
     
-    // Legacy document with files array
-    if (document.files) {
-      document.files.forEach(file => {
-        const link = window.document.createElement('a')
-        link.href = api.getFileUrl(file.path)
-        link.download = file.originalName
-        link.click()
-      })
-    }
+    // Download all files as ZIP through backend
+    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download-all/${document.slug || document.id}`
+    window.open(downloadUrl, '_blank')
   }
 
   const handlePrint = () => {
@@ -245,10 +241,19 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                 <button
                   onClick={handleDownload}
                   className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-                  title="Download"
+                  title="Download Current File"
                 >
                   <Download className="h-5 w-5" />
                 </button>
+                {hasMultipleFiles && (
+                  <button
+                    onClick={handleDownloadAll}
+                    className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                    title="Download All as ZIP"
+                  >
+                    <FileArchive className="h-5 w-5" />
+                  </button>
+                )}
                 <button
                   onClick={handlePrint}
                   className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
@@ -294,10 +299,19 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                 <button
                   onClick={handleDownload}
                   className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
-                  title="Download"
+                  title="Download Current File"
                 >
                   <Download className="h-4 w-4" />
                 </button>
+                {hasMultipleFiles && (
+                  <button
+                    onClick={handleDownloadAll}
+                    className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                    title="Download All as ZIP"
+                  >
+                    <FileArchive className="h-4 w-4" />
+                  </button>
+                )}
                 <button
                   onClick={handlePrint}
                   className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"

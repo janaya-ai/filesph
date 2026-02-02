@@ -11,7 +11,8 @@ import {
   Monitor,
   Smartphone,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileArchive
 } from 'lucide-react'
 import { api } from '../utils/api'
 import PDFRenderer from '../components/PDFRenderer'
@@ -126,21 +127,17 @@ export default function Viewer({ embedded }: ViewerProps) {
   const handleDownload = async () => {
     if (!document) return
 
-    // R2 document - download current file
-    if (currentFileUrl) {
-      window.open(currentFileUrl, '_blank')
-      return
-    }
+    // Use backend download route (proxies R2 and hides URL)
+    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download/${document.id}/${currentFileIndex}`
+    window.open(downloadUrl, '_blank')
+  }
 
-    // Legacy document with files array
-    if (document.files && document.files.length === 1) {
-      // Single file download
-      const file = document.files[0]
-      window.open(api.getFileUrl(file.filename), '_blank')
-    } else if (document.files && document.files.length > 1) {
-      // Multiple files - download as zip (backend will handle this)
-      window.open(`/api/documents/${document.id}/download`, '_blank')
-    }
+  const handleDownloadAll = () => {
+    if (!document) return
+    
+    // Download all files as ZIP through backend
+    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download-all/${document.id}`
+    window.open(downloadUrl, '_blank')
   }
 
   const handlePrint = () => {
@@ -272,10 +269,19 @@ export default function Viewer({ embedded }: ViewerProps) {
             <button
               onClick={handleDownload}
               className="p-2 hover:bg-gray-700 rounded-lg transition"
-              title="Download"
+              title="Download Current File"
             >
               <Download className="h-5 w-5" />
             </button>
+            {hasMultipleFiles && (
+              <button
+                onClick={handleDownloadAll}
+                className="p-2 hover:bg-gray-700 rounded-lg transition"
+                title="Download All as ZIP"
+              >
+                <FileArchive className="h-5 w-5" />
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="p-2 hover:bg-gray-700 rounded-lg transition"
