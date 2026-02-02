@@ -74,9 +74,9 @@ export default function RelatedDocuments({
           >
             {/* Thumbnail */}
             <div className="w-16 h-20 flex-shrink-0 rounded overflow-hidden bg-gray-100">
-              {doc.thumbnailUrl ? (
+              {doc.thumbnailUrl || doc.thumbnail ? (
                 <img
-                  src={doc.thumbnailUrl}
+                  src={doc.thumbnailUrl || api.getFileUrl(doc.thumbnail!)}
                   alt={doc.name}
                   className="w-full h-full object-cover"
                   loading="lazy"
