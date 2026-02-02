@@ -5,6 +5,7 @@ import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code,
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
+import RelatedDocuments from '../components/RelatedDocuments'
 import { api } from '../utils/api'
 import { Document as DocumentType, ViewerState, getFileTypeFromUrl } from '../types'
 
@@ -371,8 +372,8 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
           </div>
         )}
 
-        {/* Document Viewer */}
-        <main className={`${embedded ? 'p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
+        {/* Document Viewer - with right margin for sidebar on desktop */}
+        <main className={`${embedded ? 'p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:pr-80'}`}>
           {/* Multi-file navigation bar */}
           {hasMultipleFiles && (
             <div className="flex items-center justify-between bg-gray-100 rounded-lg p-3 mb-4">
@@ -474,6 +475,30 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
             })}
           </div>
         </main>
+
+        {/* Related Documents - Mobile (shown below viewer) */}
+        {!embedded && document && (
+          <div className="lg:hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <RelatedDocuments
+              documentId={document.id}
+              documentSlug={document.slug}
+              limit={6}
+              className="bg-white rounded-lg shadow-sm p-6"
+            />
+          </div>
+        )}
+
+        {/* Related Documents - Desktop Sidebar (fixed position) */}
+        {!embedded && document && (
+          <aside className="hidden lg:block fixed right-4 top-24 w-72 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <RelatedDocuments
+              documentId={document.id}
+              documentSlug={document.slug}
+              limit={8}
+              className="bg-white rounded-lg shadow-sm p-4 border border-gray-200"
+            />
+          </aside>
+        )}
 
         {/* Embed Code Modal */}
         {showEmbedCode && (

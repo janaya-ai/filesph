@@ -49,6 +49,11 @@ export const api = {
     return response.data
   },
 
+  async getRelatedDocuments(id: string, limit: number = 6): Promise<Document[]> {
+    const response = await axios.get(`${API_BASE}/documents/${id}/related?limit=${limit}`)
+    return response.data
+  },
+
   async trackView(id: string): Promise<{ views: number }> {
     const response = await axios.post(`${API_BASE}/documents/${id}/view`)
     return response.data

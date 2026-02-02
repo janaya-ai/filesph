@@ -684,6 +684,67 @@ app.get('/api/documents/:id', async (req, res) => {
   }
 })
 
+// Get related documents (same category or shared tags)
+app.get('/api/documents/:id/related', async (req, res) => {
+  try {
+    const data = await readData()
+    const identifier = req.params.id
+    const limit = parseInt(req.query.limit) || 6
+    
+    // Find the current document
+    const currentDoc = data.documents.find(doc => doc.id === identifier || doc.slug === identifier)
+    if (!currentDoc) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+    
+    const currentCategories = currentDoc.categories || []
+    const currentTags = currentDoc.tags || []
+    
+    // Score other documents by relevance
+    const scoredDocs = data.documents
+      .filter(doc => doc.id !== currentDoc.id) // Exclude current document
+      .map(doc => {
+        let score = 0
+        const docCategories = doc.categories || []
+        const docTags = doc.tags || []
+        
+        // Primary: Same category (3 points each)
+        const sharedCategories = docCategories.filter(cat => currentCategories.includes(cat))
+        score += sharedCategories.length * 3
+        
+        // Secondary: Shared tags (1 point each)
+        const sharedTags = docTags.filter(tag => currentTags.includes(tag))
+        score += sharedTags.length
+        
+        // Bonus for featured documents
+        if (doc.featured) score += 0.5
+        
+        // Bonus for recent documents (within last 30 days)
+        const docDate = new Date(doc.createdAt)
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        if (docDate > thirtyDaysAgo) score += 0.5
+        
+        return { doc, score, sharedCategories: sharedCategories.length, sharedTags: sharedTags.length }
+      })
+      .filter(item => item.score > 0) // Only include docs with some relevance
+      .sort((a, b) => b.score - a.score) // Sort by score descending
+      .slice(0, limit) // Limit results
+    
+    // Format response
+    const relatedDocs = scoredDocs.map(item => ({
+      ...formatDocumentForResponse(item.doc),
+      relevanceScore: item.score,
+      sharedCategories: item.sharedCategories,
+      sharedTags: item.sharedTags
+    }))
+    
+    res.json(relatedDocs)
+  } catch (error) {
+    console.error('Error fetching related documents:', error)
+    res.status(500).json({ error: 'Failed to fetch related documents' })
+  }
+})
+
 // Helper to detect file type from URL
 function getFileTypeFromUrl(url) {
   const urlLower = url.toLowerCase()
