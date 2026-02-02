@@ -84,7 +84,13 @@ async function generatePdfThumbnail(pdfUrl) {
     const pdfData = new Uint8Array(pdfBuffer)
     
     // Load the PDF with pdf.js
-    const loadingTask = pdfjsLib.getDocument({ data: pdfData })
+    // Configure standardFontDataUrl to use the fonts included with pdfjs-dist
+    const standardFontDataUrl = path.join(__dirname, 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/'
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: pdfData,
+      standardFontDataUrl: standardFontDataUrl,
+      useSystemFonts: false
+    })
     const pdfDoc = await loadingTask.promise
     
     // Get the first page
