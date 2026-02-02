@@ -782,7 +782,17 @@ async function getFileTypeFromUrlAsync(url) {
   // This is especially useful for R2 URLs without file extensions
   try {
     console.log(`Checking Content-Type for URL: ${url}`)
-    const response = await fetch(url, { method: 'HEAD' })
+    
+    // Create abort controller for timeout (10 seconds)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    
+    const response = await fetch(url, { 
+      method: 'HEAD',
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+    
     if (!response.ok) {
       console.log(`HEAD request failed with status: ${response.status}`)
       return 'other'
