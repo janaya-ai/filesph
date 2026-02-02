@@ -80,6 +80,44 @@ app.use((req, res, next) => {
 
 app.use('/api/files', express.static(path.join(storagePath, 'uploads')))
 
+// Proxy endpoint for external files (R2, CDN) to avoid CORS issues
+app.get('/api/proxy', async (req, res) => {
+  const { url } = req.query
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL parameter is required' })
+  }
+  
+  try {
+    // Validate URL
+    const parsedUrl = new URL(url)
+    
+    // Only allow https URLs for security
+    if (parsedUrl.protocol !== 'https:') {
+      return res.status(400).json({ error: 'Only HTTPS URLs are allowed' })
+    }
+    
+    // Fetch the file
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch file' })
+    }
+    
+    // Get content type and set headers
+    const contentType = response.headers.get('content-type') || 'application/octet-stream'
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Cache-Control', 'public, max-age=86400') // Cache for 1 day
+    
+    // Stream the response
+    const buffer = await response.arrayBuffer()
+    res.send(Buffer.from(buffer))
+  } catch (error) {
+    console.error('Proxy error:', error)
+    res.status(500).json({ error: 'Failed to proxy file' })
+  }
+})
+
 // Ensure directories exist
 const uploadsDir = path.join(storagePath, 'uploads')
 const dataFile = path.join(storagePath, 'data.json')

@@ -5,6 +5,9 @@ import type { ViewerState } from '../types'
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
+// API base URL for proxy
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
 interface PDFRendererProps {
   fileUrl: string
   viewerState: ViewerState
@@ -32,14 +35,30 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
   const loadPDF = async () => {
     try {
       setLoading(true)
-      const loadingTask = pdfjsLib.getDocument(fileUrl)
+      setError(null)
+      
+      // For external URLs (R2, CDN), use our proxy to avoid CORS issues
+      const isExternalUrl = fileUrl.startsWith('http://') || fileUrl.startsWith('https://')
+      const pdfUrl = isExternalUrl 
+        ? `${API_BASE}/api/proxy?url=${encodeURIComponent(fileUrl)}`
+        : fileUrl
+      
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+      })
+      
       const pdfDoc = await loadingTask.promise
       setPdf(pdfDoc)
       setPages(pdfDoc.numPages)
       canvasRefs.current = new Array(pdfDoc.numPages).fill(null)
-    } catch (err) {
-      setError('Failed to load PDF')
-      console.error(err)
+    } catch (err: any) {
+      console.error('PDF load error:', err)
+      // Check if it's a CORS error
+      if (err?.message?.includes('fetch') || err?.name === 'MissingPDFException') {
+        setError('Unable to load PDF. The file may have CORS restrictions. Try downloading instead.')
+      } else {
+        setError('Failed to load PDF: ' + (err?.message || 'Unknown error'))
+      }
     } finally {
       setLoading(false)
     }
@@ -130,9 +149,41 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
   }
 
   if (error) {
+    // Show iframe fallback for CORS errors
+    const isExternalUrl = fileUrl.startsWith('http://') || fileUrl.startsWith('https://')
+    
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-red-400">{error}</p>
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {isExternalUrl ? (
+          <>
+            {/* Try embedded PDF viewer first */}
+            <div className="w-full" style={{ height: '80vh' }}>
+              <iframe
+                src={fileUrl}
+                className="w-full h-full border-0"
+                title="PDF Document"
+              />
+            </div>
+            {/* Fallback message */}
+            <div className="p-4 bg-gray-50 border-t text-center">
+              <p className="text-sm text-gray-600 mb-2">
+                If the PDF doesn't display above, you can view or download it directly:
+              </p>
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Open PDF in New Tab
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-red-400">{error}</p>
+          </div>
+        )}
       </div>
     )
   }
