@@ -4,7 +4,12 @@ export interface Document {
   slug: string
   description?: string
   tags?: string[]
-  files: DocumentFile[]
+  // Legacy file uploads (for backward compatibility)
+  files?: DocumentFile[]
+  // R2 URL-based storage
+  fileUrl?: string
+  fileType?: 'pdf' | 'image' | 'text' | 'other'
+  thumbnailUrl?: string
   categories: string[]
   featured: boolean
   createdAt: string

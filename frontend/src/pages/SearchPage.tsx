@@ -377,9 +377,9 @@ function DocumentCard({ document, categories, listView, formatDate }: DocumentCa
         className="flex items-center space-x-4 p-4 bg-white rounded-xl border border-gray-100 hover:shadow-md transition-all duration-200 group"
       >
         <div className="h-16 w-16 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {document.thumbnail ? (
+          {document.thumbnailUrl || document.thumbnail ? (
             <img 
-              src={api.getFileUrl(document.thumbnail)} 
+              src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
               alt="" 
               className="w-full h-full object-cover rounded-lg"
               loading="lazy"
@@ -418,9 +418,9 @@ function DocumentCard({ document, categories, listView, formatDate }: DocumentCa
       className="block bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all duration-200 overflow-hidden group"
     >
       <div className="aspect-[16/10] bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden">
-        {document.thumbnail ? (
+        {document.thumbnailUrl || document.thumbnail ? (
           <img 
-            src={api.getFileUrl(document.thumbnail)} 
+            src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
             alt="" 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             loading="lazy"

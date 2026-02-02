@@ -300,8 +300,110 @@ app.get('/api/documents/:id', async (req, res) => {
   }
 })
 
-// Upload new document
-app.post('/api/documents', upload.array('files', 10), async (req, res) => {
+// Helper to detect file type from URL
+function getFileTypeFromUrl(url) {
+  const urlLower = url.toLowerCase()
+  if (urlLower.includes('.pdf')) return 'pdf'
+  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png') || urlLower.includes('.gif') || urlLower.includes('.webp')) return 'image'
+  if (urlLower.includes('.txt') || urlLower.includes('.csv')) return 'text'
+  if (urlLower.includes('.doc') || urlLower.includes('.docx')) return 'other'
+  if (urlLower.includes('.zip') || urlLower.includes('.rar')) return 'other'
+  return 'other'
+}
+
+// Default placeholder thumbnails for different file types
+const defaultThumbnails = {
+  pdf: '/api/files/placeholder-pdf.png',
+  text: '/api/files/placeholder-text.png',
+  other: '/api/files/placeholder-file.png'
+}
+
+// Create new document with R2 URL (JSON body)
+app.post('/api/documents', async (req, res) => {
+  try {
+    // Check if this is a JSON request (R2 URL based) or form-data (legacy upload)
+    const contentType = req.headers['content-type'] || ''
+    
+    if (contentType.includes('application/json')) {
+      // R2 URL-based document creation
+      const { 
+        name, 
+        description, 
+        fileUrl, 
+        thumbnailUrl, 
+        categories = [], 
+        featured = false,
+        releaseDate,
+        deadline,
+        sourceAgency,
+        tags = []
+      } = req.body
+
+      if (!name || !fileUrl) {
+        return res.status(400).json({ error: 'Name and fileUrl are required' })
+      }
+
+      const data = await readData()
+      const baseSlug = generateSlug(name)
+      const slug = await ensureUniqueSlug(baseSlug, data)
+      const fileType = getFileTypeFromUrl(fileUrl)
+
+      // Determine thumbnail URL
+      let finalThumbnailUrl = thumbnailUrl
+      if (!finalThumbnailUrl) {
+        if (fileType === 'image') {
+          // Use the image itself as thumbnail
+          finalThumbnailUrl = fileUrl
+        } else {
+          // Use placeholder for other file types
+          finalThumbnailUrl = defaultThumbnails[fileType] || defaultThumbnails.other
+        }
+      }
+
+      const newDocument = {
+        id: uuidv4(),
+        name,
+        slug,
+        description: description || '',
+        tags: Array.isArray(tags) ? tags : [],
+        fileUrl,
+        fileType,
+        thumbnailUrl: finalThumbnailUrl,
+        categories: Array.isArray(categories) ? categories : [],
+        featured: Boolean(featured),
+        createdAt: new Date().toISOString(),
+        releaseDate: releaseDate || null,
+        deadline: deadline || null,
+        totalPages: 1,
+        views: 0,
+        downloads: 0,
+        sourceAgency: sourceAgency || null
+      }
+
+      data.documents.push(newDocument)
+
+      // Update category document counts
+      newDocument.categories.forEach(catId => {
+        const category = data.categories.find(c => c.id === catId)
+        if (category) {
+          category.documentCount++
+        }
+      })
+
+      await writeData(data)
+      res.status(201).json(newDocument)
+    } else {
+      // Legacy file upload - redirect to upload endpoint
+      return res.status(400).json({ error: 'File uploads should use /api/documents/upload endpoint' })
+    }
+  } catch (error) {
+    console.error('Create document error:', error)
+    res.status(500).json({ error: 'Failed to create document' })
+  }
+})
+
+// Legacy: Upload new document with files
+app.post('/api/documents/upload', upload.array('files', 10), async (req, res) => {
   try {
     const files = req.files
     const categories = JSON.parse(req.body.categories || '[]')

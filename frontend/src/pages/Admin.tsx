@@ -53,6 +53,7 @@ export default function Admin() {
   }
 
   // Upload state
+  const [uploadMode, setUploadMode] = useState<'file' | 'r2'>('r2') // Default to R2 mode
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploadName, setUploadName] = useState('')
   const [uploadDescription, setUploadDescription] = useState('')
@@ -64,6 +65,9 @@ export default function Admin() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isFeatured, setIsFeatured] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // R2 URL mode state
+  const [r2FileUrl, setR2FileUrl] = useState('')
+  const [r2ThumbnailUrl, setR2ThumbnailUrl] = useState('')
 
   // Edit document modal state
   const [editDocumentModalOpen, setEditDocumentModalOpen] = useState(false)
@@ -114,38 +118,83 @@ export default function Admin() {
   }
 
   const handleUpload = async () => {
-    if (uploadFiles.length === 0 || !uploadName) {
-      alert('Please select files and provide a name')
-      return
-    }
-
-    try {
-      setUploading(true)
-      const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-      const newDoc = await api.uploadDocument(uploadFiles, uploadName, selectedCategories, isFeatured, uploadDescription, tags, uploadReleaseDate, uploadDeadline, uploadSourceAgency)
-      
-      // Upload thumbnail if provided
-      if (uploadThumbnail) {
-        await api.uploadThumbnail(newDoc.id, uploadThumbnail)
+    if (uploadMode === 'r2') {
+      // R2 URL mode
+      if (!r2FileUrl || !uploadName) {
+        alert('Please provide a file URL and document name')
+        return
       }
-      
-      setUploadFiles([])
-      setUploadName('')
-      setUploadDescription('')
-      setUploadTags('')
-      setUploadReleaseDate('')
-      setUploadDeadline('')
-      setUploadSourceAgency('')
-      setUploadThumbnail(null)
-      setSelectedCategories([])
-      setIsFeatured(false)
-      await loadData()
-      alert('Document uploaded successfully!')
-    } catch (error) {
-      console.error('Upload failed:', error)
-      alert('Failed to upload document')
-    } finally {
-      setUploading(false)
+
+      try {
+        setUploading(true)
+        const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        await api.createDocument({
+          name: uploadName,
+          description: uploadDescription,
+          fileUrl: r2FileUrl,
+          thumbnailUrl: r2ThumbnailUrl || undefined,
+          categories: selectedCategories,
+          featured: isFeatured,
+          releaseDate: uploadReleaseDate || undefined,
+          deadline: uploadDeadline || undefined,
+          sourceAgency: uploadSourceAgency || undefined,
+          tags
+        })
+        
+        // Reset form
+        setR2FileUrl('')
+        setR2ThumbnailUrl('')
+        setUploadName('')
+        setUploadDescription('')
+        setUploadTags('')
+        setUploadReleaseDate('')
+        setUploadDeadline('')
+        setUploadSourceAgency('')
+        setSelectedCategories([])
+        setIsFeatured(false)
+        await loadData()
+        alert('Document created successfully!')
+      } catch (error) {
+        console.error('Create failed:', error)
+        alert('Failed to create document')
+      } finally {
+        setUploading(false)
+      }
+    } else {
+      // Legacy file upload mode
+      if (uploadFiles.length === 0 || !uploadName) {
+        alert('Please select files and provide a name')
+        return
+      }
+
+      try {
+        setUploading(true)
+        const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        const newDoc = await api.uploadDocument(uploadFiles, uploadName, selectedCategories, isFeatured, uploadDescription, tags, uploadReleaseDate, uploadDeadline, uploadSourceAgency)
+        
+        // Upload thumbnail if provided
+        if (uploadThumbnail) {
+          await api.uploadThumbnail(newDoc.id, uploadThumbnail)
+        }
+        
+        setUploadFiles([])
+        setUploadName('')
+        setUploadDescription('')
+        setUploadTags('')
+        setUploadReleaseDate('')
+        setUploadDeadline('')
+        setUploadSourceAgency('')
+        setUploadThumbnail(null)
+        setSelectedCategories([])
+        setIsFeatured(false)
+        await loadData()
+        alert('Document uploaded successfully!')
+      } catch (error) {
+        console.error('Upload failed:', error)
+        alert('Failed to upload document')
+      } finally {
+        setUploading(false)
+      }
     }
   }
 
@@ -392,27 +441,99 @@ export default function Admin() {
             <section className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
                 <Upload className="h-5 w-5" />
-                <span>Upload Documents</span>
+                <span>Add Document</span>
               </h2>
+
+              {/* Mode Toggle */}
+              <div className="mb-6">
+                <div className="flex rounded-lg overflow-hidden border border-gray-300 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode('r2')}
+                    className={`px-4 py-2 text-sm font-medium transition ${
+                      uploadMode === 'r2'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    R2 URL (External)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode('file')}
+                    className={`px-4 py-2 text-sm font-medium transition ${
+                      uploadMode === 'file'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    File Upload (Local)
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  {uploadMode === 'r2' 
+                    ? 'Paste a public URL from Cloudflare R2 or any file hosting service'
+                    : 'Upload files directly to the server (legacy mode)'}
+                </p>
+              </div>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Files (PDF, JPG, PNG, TXT)
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,.txt"
-                    onChange={handleFileSelect}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  {uploadFiles.length > 0 && (
-                    <p className="mt-2 text-sm text-gray-600">
-                      {uploadFiles.length} file(s) selected
-                    </p>
-                  )}
-                </div>
+                {/* R2 URL Input (when in R2 mode) */}
+                {uploadMode === 'r2' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        File URL <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={r2FileUrl}
+                        onChange={(e) => setR2FileUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="https://pub-xxxx.r2.dev/document.pdf"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Supports: PDF, JPG, PNG, GIF, TXT, CSV, DOC, DOCX
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Thumbnail URL (optional)
+                      </label>
+                      <input
+                        type="url"
+                        value={r2ThumbnailUrl}
+                        onChange={(e) => setR2ThumbnailUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="https://pub-xxxx.r2.dev/thumbnail.jpg"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Leave empty to auto-generate (images) or use placeholder (PDFs, docs)
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* File Upload Input (when in file mode) */}
+                {uploadMode === 'file' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Files (PDF, JPG, PNG, TXT)
+                    </label>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png,.txt"
+                      onChange={handleFileSelect}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {uploadFiles.length > 0 && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        {uploadFiles.length} file(s) selected
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -502,7 +623,8 @@ export default function Admin() {
                   />
                 </div>
 
-                {/* Thumbnail Upload */}
+                {/* Thumbnail Upload (only for file mode) */}
+                {uploadMode === 'file' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Thumbnail Image (optional)
@@ -541,6 +663,7 @@ export default function Admin() {
                     </div>
                   </div>
                 </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -582,10 +705,10 @@ export default function Admin() {
 
                 <button
                   onClick={handleUpload}
-                  disabled={uploading || uploadFiles.length === 0}
+                  disabled={uploading || (uploadMode === 'file' ? uploadFiles.length === 0 : !r2FileUrl) || !uploadName}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {uploading ? 'Uploading...' : 'Upload Document'}
+                  {uploading ? 'Processing...' : (uploadMode === 'r2' ? 'Create Document' : 'Upload Document')}
                 </button>
               </div>
             </section>
@@ -606,7 +729,14 @@ export default function Admin() {
                           {doc.name}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {doc.totalPages} pages • {doc.files.length} file(s)
+                          {doc.fileUrl ? (
+                            <span className="inline-flex items-center">
+                              <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded mr-2">R2</span>
+                              {doc.fileType?.toUpperCase() || 'File'}
+                            </span>
+                          ) : (
+                            <span>{doc.totalPages} pages • {doc.files?.length || 0} file(s)</span>
+                          )}
                         </p>
                       </div>
                     </div>

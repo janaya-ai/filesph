@@ -5,6 +5,19 @@ const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
   : '/api'
 
+export interface CreateDocumentData {
+  name: string
+  description?: string
+  fileUrl: string
+  thumbnailUrl?: string
+  categories: string[]
+  featured: boolean
+  releaseDate?: string
+  deadline?: string
+  sourceAgency?: string
+  tags?: string[]
+}
+
 export const api = {
   // Authentication
   async login(password: string): Promise<{ token: string; success: boolean }> {
@@ -43,6 +56,13 @@ export const api = {
     return response.data
   },
 
+  // Create document with R2 URL
+  async createDocument(data: CreateDocumentData): Promise<Document> {
+    const response = await axios.post(`${API_BASE}/documents`, data)
+    return response.data
+  },
+
+  // Legacy file upload (kept for backward compatibility)
   async uploadDocument(files: File[], name: string, categories: string[], featured: boolean, description?: string, tags?: string[], releaseDate?: string, deadline?: string, sourceAgency?: string): Promise<Document> {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
@@ -55,7 +75,7 @@ export const api = {
     if (deadline) formData.append('deadline', deadline)
     if (sourceAgency) formData.append('sourceAgency', sourceAgency)
 
-    const response = await axios.post(`${API_BASE}/documents`, formData, {
+    const response = await axios.post(`${API_BASE}/documents/upload`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     return response.data
@@ -102,6 +122,10 @@ export const api = {
 
   // Files
   getFileUrl(filename: string): string {
+    // If it's already a full URL (R2), return as-is
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename
+    }
     return `${API_BASE}/files/${filename}`
   },
 

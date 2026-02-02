@@ -96,11 +96,18 @@ export default function Viewer({ embedded }: ViewerProps) {
   const handleDownload = async () => {
     if (!document) return
 
-    if (document.files.length === 1) {
+    // R2 document - direct URL
+    if (document.fileUrl) {
+      window.open(document.fileUrl, '_blank')
+      return
+    }
+
+    // Legacy document with files array
+    if (document.files && document.files.length === 1) {
       // Single file download
       const file = document.files[0]
       window.open(api.getFileUrl(file.filename), '_blank')
-    } else {
+    } else if (document.files && document.files.length > 1) {
       // Multiple files - download as zip (backend will handle this)
       window.open(`/api/documents/${document.id}/download`, '_blank')
     }
@@ -290,7 +297,49 @@ export default function Viewer({ embedded }: ViewerProps) {
       {/* Document Content */}
       <div className={`${embedded ? 'pt-0' : 'pt-24'} pb-8`}>
         <div className="max-w-6xl mx-auto px-4">
-          {document.files.map((file) => (
+          {/* R2 document - single file via URL */}
+          {document.fileUrl && (
+            <div className="mb-8">
+              {document.fileType === 'pdf' && (
+                <PDFRenderer
+                  fileUrl={document.fileUrl}
+                  viewerState={viewerState}
+                  onPageChange={(page) =>
+                    setViewerState(prev => ({ ...prev, currentPage: page }))
+                  }
+                />
+              )}
+              {document.fileType === 'image' && (
+                <ImageRenderer
+                  fileUrl={document.fileUrl}
+                  viewerState={viewerState}
+                />
+              )}
+              {document.fileType === 'text' && (
+                <TextRenderer
+                  fileUrl={document.fileUrl}
+                  viewerState={viewerState}
+                />
+              )}
+              {document.fileType === 'other' && (
+                <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+                  <p className="text-gray-600 mb-4">This document type cannot be previewed in the browser.</p>
+                  <a
+                    href={document.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>Download File</span>
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Legacy document with files array */}
+          {document.files && document.files.map((file) => (
             <div key={file.id} className="mb-8">
               {file.type === 'pdf' && (
                 <PDFRenderer

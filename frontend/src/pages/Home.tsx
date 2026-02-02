@@ -377,9 +377,9 @@ function DocumentCard({ document, categories, featured }: DocumentCardProps) {
     <div className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden border border-gray-100">
       {/* Thumbnail */}
       <div className="aspect-[16/10] bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center relative overflow-hidden">
-        {document.thumbnail ? (
+        {document.thumbnailUrl || document.thumbnail ? (
           <img 
-            src={api.getFileUrl(document.thumbnail)} 
+            src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
             alt={document.name} 
             className="w-full h-full object-cover"
             loading="lazy"
@@ -465,9 +465,9 @@ function CompactDocumentCard({ document, categories, rank, showDate }: CompactDo
         </div>
       ) : (
         <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
-          {document.thumbnail ? (
+          {document.thumbnailUrl || document.thumbnail ? (
             <img 
-              src={api.getFileUrl(document.thumbnail)} 
+              src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
               alt="" 
               className="w-full h-full object-cover"
               loading="lazy"

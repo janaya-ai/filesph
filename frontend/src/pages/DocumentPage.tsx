@@ -49,12 +49,22 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
 
   const handleDownload = () => {
     if (!document) return
-    document.files.forEach(file => {
-      const link = window.document.createElement('a')
-      link.href = api.getFileUrl(file.path)
-      link.download = file.originalName
-      link.click()
-    })
+    
+    // R2 document - single URL
+    if (document.fileUrl) {
+      window.open(document.fileUrl, '_blank')
+      return
+    }
+    
+    // Legacy document with files array
+    if (document.files) {
+      document.files.forEach(file => {
+        const link = window.document.createElement('a')
+        link.href = api.getFileUrl(file.path)
+        link.download = file.originalName
+        link.click()
+      })
+    }
   }
 
   const handlePrint = () => {
@@ -112,9 +122,19 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   }
 
   const pageUrl = `${window.location.origin}/d/${document.slug}`
-  const thumbnailUrl = document.thumbnail 
-    ? `http://localhost:3001/${document.thumbnail}` 
-    : `${window.location.origin}/placeholder.jpg`
+  
+  // Determine thumbnail URL - R2 thumbnailUrl takes priority, then legacy thumbnail
+  let thumbnailUrl = `${window.location.origin}/placeholder.jpg`
+  if (document.thumbnailUrl) {
+    thumbnailUrl = document.thumbnailUrl
+  } else if (document.thumbnail) {
+    thumbnailUrl = `http://localhost:3001/${document.thumbnail}`
+  }
+
+  // Determine encoding format for structured data
+  const encodingFormat = document.fileUrl 
+    ? (document.fileType === 'pdf' ? 'application/pdf' : document.fileType === 'image' ? 'image/jpeg' : 'text/plain')
+    : document.files?.[0]?.mimeType
 
   const structuredData = {
     '@context': 'https://schema.org',
@@ -127,7 +147,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     keywords: document.tags?.join(', '),
     genre: document.categories?.join(', '),
     numberOfPages: document.totalPages,
-    encodingFormat: document.files[0]?.mimeType,
+    encodingFormat: encodingFormat,
   }
 
   return (
@@ -313,7 +333,47 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         {/* Document Viewer */}
         <main className={`${embedded ? 'p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
           <div className={`bg-white ${embedded ? '' : 'rounded-lg shadow-sm'} overflow-y-auto`} style={{ transform: `scale(${viewerState.zoom})`, transformOrigin: 'top center' }}>
-            {document.files.map(file => {
+            {/* R2 document - single file via URL */}
+            {document.fileUrl && (
+              <div className="mb-4">
+                {document.fileType === 'pdf' && (
+                  <PDFRenderer 
+                    fileUrl={document.fileUrl} 
+                    viewerState={viewerState}
+                    onPageChange={(page) => setViewerState(prev => ({ ...prev, currentPage: page }))}
+                  />
+                )}
+                {document.fileType === 'image' && (
+                  <ImageRenderer 
+                    fileUrl={document.fileUrl} 
+                    viewerState={viewerState}
+                  />
+                )}
+                {document.fileType === 'text' && (
+                  <TextRenderer 
+                    fileUrl={document.fileUrl} 
+                    viewerState={viewerState}
+                  />
+                )}
+                {document.fileType === 'other' && (
+                  <div className="bg-gray-50 rounded-lg p-8 text-center">
+                    <p className="text-gray-600 mb-4">This document type cannot be previewed in the browser.</p>
+                    <a
+                      href={document.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      <Download className="h-5 w-5" />
+                      <span>Download File</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Legacy document with files array */}
+            {document.files && document.files.map(file => {
               const fileUrl = api.getFileUrl(file.path)
               return (
                 <div key={file.id} className="mb-4">
