@@ -1137,7 +1137,7 @@ export default function Admin() {
                   <div className="w-24 h-32 bg-gradient-to-br from-blue-50 to-blue-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {editingDocument?.thumbnailUrl || editingDocument?.thumbnail ? (
                       <img 
-                        src={editingDocument.thumbnailUrl || api.getFileUrl(editingDocument.thumbnail || '')} 
+                        src={editingDocument.thumbnailUrl || (editingDocument.thumbnail ? api.getFileUrl(editingDocument.thumbnail) : '')} 
                         alt="Current thumbnail" 
                         className="object-cover w-full h-full"
                       />
