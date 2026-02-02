@@ -9,13 +9,16 @@ import {
   Maximize,
   Home,
   Monitor,
-  Smartphone
+  Smartphone,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { api } from '../utils/api'
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
 import type { Document, ViewerState } from '../types'
+import { getFileTypeFromUrl } from '../types'
 
 interface ViewerProps {
   embedded?: boolean
@@ -29,6 +32,7 @@ export default function Viewer({ embedded }: ViewerProps) {
   const [error, setError] = useState<string | null>(null)
   const [toolbarVisible, setToolbarVisible] = useState(true)
   const [shareMenuOpen, setShareMenuOpen] = useState(false)
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const [viewerState, setViewerState] = useState<ViewerState>({
     zoom: 1,
     currentPage: 1,
@@ -51,6 +55,7 @@ export default function Viewer({ embedded }: ViewerProps) {
       const doc = await api.getDocument(docId!)
       setDocument(doc)
       setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
+      setCurrentFileIndex(0)
     } catch (err) {
       setError('Failed to load document')
       console.error(err)
@@ -58,6 +63,19 @@ export default function Viewer({ embedded }: ViewerProps) {
       setLoading(false)
     }
   }
+
+  // Get all file URLs
+  const getFileUrls = (): string[] => {
+    if (!document) return []
+    if (document.fileUrls && document.fileUrls.length > 0) return document.fileUrls
+    if (document.fileUrl) return [document.fileUrl]
+    return []
+  }
+
+  const fileUrls = getFileUrls()
+  const currentFileUrl = fileUrls[currentFileIndex] || ''
+  const currentFileType = currentFileUrl ? getFileTypeFromUrl(currentFileUrl) : 'other'
+  const hasMultipleFiles = fileUrls.length > 1
 
   const handleScroll = () => {
     setToolbarVisible(false)
@@ -93,12 +111,24 @@ export default function Viewer({ embedded }: ViewerProps) {
     setViewerState(prev => ({ ...prev, fitMode: 'page', zoom: 1 }))
   }
 
+  const handlePrevFile = () => {
+    if (currentFileIndex > 0) {
+      setCurrentFileIndex(currentFileIndex - 1)
+    }
+  }
+
+  const handleNextFile = () => {
+    if (currentFileIndex < fileUrls.length - 1) {
+      setCurrentFileIndex(currentFileIndex + 1)
+    }
+  }
+
   const handleDownload = async () => {
     if (!document) return
 
-    // R2 document - direct URL
-    if (document.fileUrl) {
-      window.open(document.fileUrl, '_blank')
+    // R2 document - download current file
+    if (currentFileUrl) {
+      window.open(currentFileUrl, '_blank')
       return
     }
 
@@ -297,35 +327,64 @@ export default function Viewer({ embedded }: ViewerProps) {
       {/* Document Content */}
       <div className={`${embedded ? 'pt-0' : 'pt-24'} pb-8`}>
         <div className="max-w-6xl mx-auto px-4">
-          {/* R2 document - single file via URL */}
-          {document.fileUrl && (
+          {/* Multi-file navigation */}
+          {hasMultipleFiles && (
+            <div className="flex items-center justify-between bg-gray-800 rounded-lg p-3 mb-4">
+              <button
+                onClick={handlePrevFile}
+                disabled={currentFileIndex === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition text-white"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+              
+              <div className="text-center text-white">
+                <span className="font-medium">
+                  File {currentFileIndex + 1} of {fileUrls.length}
+                </span>
+              </div>
+              
+              <button
+                onClick={handleNextFile}
+                disabled={currentFileIndex === fileUrls.length - 1}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition text-white"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
+          {/* R2 document with fileUrls */}
+          {currentFileUrl && (
             <div className="mb-8">
-              {document.fileType === 'pdf' && (
+              {currentFileType === 'pdf' && (
                 <PDFRenderer
-                  fileUrl={document.fileUrl}
+                  fileUrl={currentFileUrl}
                   viewerState={viewerState}
                   onPageChange={(page) =>
                     setViewerState(prev => ({ ...prev, currentPage: page }))
                   }
                 />
               )}
-              {document.fileType === 'image' && (
+              {currentFileType === 'image' && (
                 <ImageRenderer
-                  fileUrl={document.fileUrl}
+                  fileUrl={currentFileUrl}
                   viewerState={viewerState}
                 />
               )}
-              {document.fileType === 'text' && (
+              {currentFileType === 'text' && (
                 <TextRenderer
-                  fileUrl={document.fileUrl}
+                  fileUrl={currentFileUrl}
                   viewerState={viewerState}
                 />
               )}
-              {document.fileType === 'other' && (
+              {currentFileType === 'other' && (
                 <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-                  <p className="text-gray-600 mb-4">This document type cannot be previewed in the browser.</p>
+                  <p className="text-gray-600 mb-4">This file type cannot be previewed in the browser.</p>
                   <a
-                    href={document.fileUrl}
+                    href={currentFileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -339,7 +398,7 @@ export default function Viewer({ embedded }: ViewerProps) {
           )}
 
           {/* Legacy document with files array */}
-          {document.files && document.files.map((file) => (
+          {!currentFileUrl && document.files && document.files.map((file) => (
             <div key={file.id} className="mb-8">
               {file.type === 'pdf' && (
                 <PDFRenderer

@@ -65,8 +65,8 @@ export default function Admin() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isFeatured, setIsFeatured] = useState(false)
   const [uploading, setUploading] = useState(false)
-  // R2 URL mode state
-  const [r2FileUrl, setR2FileUrl] = useState('')
+  // R2 URL mode state (multiple URLs)
+  const [r2FileUrls, setR2FileUrls] = useState<string[]>([''])
   const [r2ThumbnailUrl, setR2ThumbnailUrl] = useState('')
 
   // Edit document modal state
@@ -119,9 +119,10 @@ export default function Admin() {
 
   const handleUpload = async () => {
     if (uploadMode === 'r2') {
-      // R2 URL mode
-      if (!r2FileUrl || !uploadName) {
-        alert('Please provide a file URL and document name')
+      // R2 URL mode - multiple URLs
+      const validUrls = r2FileUrls.filter(url => url.trim())
+      if (validUrls.length === 0 || !uploadName) {
+        alert('Please provide at least one file URL and document name')
         return
       }
 
@@ -131,7 +132,7 @@ export default function Admin() {
         await api.createDocument({
           name: uploadName,
           description: uploadDescription,
-          fileUrl: r2FileUrl,
+          fileUrls: validUrls,
           thumbnailUrl: r2ThumbnailUrl || undefined,
           categories: selectedCategories,
           featured: isFeatured,
@@ -142,7 +143,7 @@ export default function Admin() {
         })
         
         // Reset form
-        setR2FileUrl('')
+        setR2FileUrls([''])
         setR2ThumbnailUrl('')
         setUploadName('')
         setUploadDescription('')
@@ -483,18 +484,53 @@ export default function Admin() {
                   <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        File URL <span className="text-red-500">*</span>
+                        File URLs <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="url"
-                        value={r2FileUrl}
-                        onChange={(e) => setR2FileUrl(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="https://pub-xxxx.r2.dev/document.pdf"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Supports: PDF, JPG, PNG, GIF, TXT, CSV, DOC, DOCX
+                      <p className="mb-2 text-xs text-gray-500">
+                        Add one or more file URLs. Supports: PDF, JPG, PNG, GIF, TXT, CSV
                       </p>
+                      <div className="space-y-2">
+                        {r2FileUrls.map((url, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="url"
+                              value={url}
+                              onChange={(e) => {
+                                const newUrls = [...r2FileUrls]
+                                newUrls[index] = e.target.value
+                                setR2FileUrls(newUrls)
+                              }}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder={`https://pub-xxxx.r2.dev/file${index + 1}.pdf`}
+                            />
+                            {r2FileUrls.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newUrls = r2FileUrls.filter((_, i) => i !== index)
+                                  setR2FileUrls(newUrls)
+                                }}
+                                className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="Remove URL"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setR2FileUrls([...r2FileUrls, ''])}
+                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <span>+</span> Add another file URL
+                      </button>
+                      {r2FileUrls.filter(u => u.trim()).length > 0 && (
+                        <p className="mt-2 text-sm text-green-600">
+                          {r2FileUrls.filter(u => u.trim()).length} file(s) added
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -508,7 +544,7 @@ export default function Admin() {
                         placeholder="https://pub-xxxx.r2.dev/thumbnail.jpg"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Leave empty to auto-generate (images) or use placeholder (PDFs, docs)
+                        Leave empty to use first image as thumbnail, or placeholder for PDFs/docs
                       </p>
                     </div>
                   </>
@@ -705,7 +741,7 @@ export default function Admin() {
 
                 <button
                   onClick={handleUpload}
-                  disabled={uploading || (uploadMode === 'file' ? uploadFiles.length === 0 : !r2FileUrl) || !uploadName}
+                  disabled={uploading || (uploadMode === 'file' ? uploadFiles.length === 0 : r2FileUrls.filter(u => u.trim()).length === 0) || !uploadName}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {uploading ? 'Processing...' : (uploadMode === 'r2' ? 'Create Document' : 'Upload Document')}
@@ -729,10 +765,15 @@ export default function Admin() {
                           {doc.name}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {doc.fileUrl ? (
+                          {doc.fileUrls && doc.fileUrls.length > 0 ? (
                             <span className="inline-flex items-center">
                               <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded mr-2">R2</span>
-                              {doc.fileType?.toUpperCase() || 'File'}
+                              {doc.fileUrls.length} file(s)
+                            </span>
+                          ) : doc.fileUrl ? (
+                            <span className="inline-flex items-center">
+                              <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded mr-2">R2</span>
+                              1 file
                             </span>
                           ) : (
                             <span>{doc.totalPages} pages • {doc.files?.length || 0} file(s)</span>

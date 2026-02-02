@@ -6,9 +6,11 @@ export interface Document {
   tags?: string[]
   // Legacy file uploads (for backward compatibility)
   files?: DocumentFile[]
-  // R2 URL-based storage
+  // R2 URL-based storage (single file - legacy)
   fileUrl?: string
   fileType?: 'pdf' | 'image' | 'text' | 'other'
+  // R2 URL-based storage (multiple files)
+  fileUrls?: string[]
   thumbnailUrl?: string
   categories: string[]
   featured: boolean
@@ -20,6 +22,15 @@ export interface Document {
   views?: number
   downloads?: number
   sourceAgency?: string
+}
+
+// Helper to get file type from URL
+export function getFileTypeFromUrl(url: string): 'pdf' | 'image' | 'text' | 'other' {
+  const urlLower = url.toLowerCase()
+  if (urlLower.includes('.pdf')) return 'pdf'
+  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png') || urlLower.includes('.gif') || urlLower.includes('.webp')) return 'image'
+  if (urlLower.includes('.txt') || urlLower.includes('.csv')) return 'text'
+  return 'other'
 }
 
 export interface DocumentFile {

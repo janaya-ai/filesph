@@ -8,7 +8,10 @@ const API_BASE = import.meta.env.VITE_API_URL
 export interface CreateDocumentData {
   name: string
   description?: string
-  fileUrl: string
+  // Single file URL (legacy)
+  fileUrl?: string
+  // Multiple file URLs (new)
+  fileUrls?: string[]
   thumbnailUrl?: string
   categories: string[]
   featured: boolean

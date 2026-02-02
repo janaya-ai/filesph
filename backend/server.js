@@ -183,15 +183,25 @@ async function ensureUniqueSlug(baseSlug, data, excludeId = null) {
 
 // Format document for API response (convert absolute paths to filenames)
 function formatDocumentForResponse(doc) {
-  // Handle R2 documents (no files array)
-  if (doc.fileUrl) {
+  // Handle R2 documents with multiple file URLs (new format)
+  if (doc.fileUrls && doc.fileUrls.length > 0) {
     return {
       ...doc,
       thumbnail: doc.thumbnail ? doc.thumbnail.split(path.sep).pop() : doc.thumbnail
     }
   }
   
-  // Handle legacy documents with files array
+  // Handle R2 documents with single file URL (legacy R2 format)
+  if (doc.fileUrl) {
+    return {
+      ...doc,
+      // Convert single fileUrl to fileUrls array for consistency
+      fileUrls: [doc.fileUrl],
+      thumbnail: doc.thumbnail ? doc.thumbnail.split(path.sep).pop() : doc.thumbnail
+    }
+  }
+  
+  // Handle legacy documents with files array (local uploads)
   return {
     ...doc,
     files: doc.files ? doc.files.map(file => ({
@@ -376,7 +386,8 @@ app.post('/api/documents', async (req, res) => {
       const { 
         name, 
         description, 
-        fileUrl, 
+        fileUrl,      // Single URL (legacy)
+        fileUrls,     // Multiple URLs (new)
         thumbnailUrl, 
         categories = [], 
         featured = false,
@@ -386,24 +397,34 @@ app.post('/api/documents', async (req, res) => {
         tags = []
       } = req.body
 
-      if (!name || !fileUrl) {
-        return res.status(400).json({ error: 'Name and fileUrl are required' })
+      // Support both single fileUrl and multiple fileUrls
+      let urls = []
+      if (fileUrls && Array.isArray(fileUrls) && fileUrls.length > 0) {
+        urls = fileUrls.filter(url => url && url.trim())
+      } else if (fileUrl) {
+        urls = [fileUrl]
+      }
+
+      if (!name || urls.length === 0) {
+        return res.status(400).json({ error: 'Name and at least one file URL are required' })
       }
 
       const data = await readData()
       const baseSlug = generateSlug(name)
       const slug = await ensureUniqueSlug(baseSlug, data)
-      const fileType = getFileTypeFromUrl(fileUrl)
+      
+      // Get file type from first URL for thumbnail detection
+      const firstFileType = getFileTypeFromUrl(urls[0])
 
       // Determine thumbnail URL
       let finalThumbnailUrl = thumbnailUrl
       if (!finalThumbnailUrl) {
-        if (fileType === 'image') {
-          // Use the image itself as thumbnail
-          finalThumbnailUrl = fileUrl
+        if (firstFileType === 'image') {
+          // Use the first image as thumbnail
+          finalThumbnailUrl = urls[0]
         } else {
           // Use placeholder for other file types
-          finalThumbnailUrl = defaultThumbnails[fileType] || defaultThumbnails.other
+          finalThumbnailUrl = defaultThumbnails[firstFileType] || defaultThumbnails.other
         }
       }
 
@@ -413,15 +434,14 @@ app.post('/api/documents', async (req, res) => {
         slug,
         description: description || '',
         tags: Array.isArray(tags) ? tags : [],
-        fileUrl,
-        fileType,
+        fileUrls: urls,
         thumbnailUrl: finalThumbnailUrl,
         categories: Array.isArray(categories) ? categories : [],
         featured: Boolean(featured),
         createdAt: new Date().toISOString(),
         releaseDate: releaseDate || null,
         deadline: deadline || null,
-        totalPages: 1,
+        totalPages: urls.length,
         views: 0,
         downloads: 0,
         sourceAgency: sourceAgency || null

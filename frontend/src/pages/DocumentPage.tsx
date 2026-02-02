@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code } from 'lucide-react'
+import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code, ChevronLeft, ChevronRight } from 'lucide-react'
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
 import { api } from '../utils/api'
-import { Document as DocumentType, ViewerState } from '../types'
+import { Document as DocumentType, ViewerState, getFileTypeFromUrl } from '../types'
 
 interface DocumentPageProps {
   embedded?: boolean
@@ -17,6 +17,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   const [document, setDocument] = useState<DocumentType | null>(null)
   const [loading, setLoading] = useState(true)
   const [showEmbedCode, setShowEmbedCode] = useState(false)
+  const [currentFileIndex, setCurrentFileIndex] = useState(0)
   const [viewerState, setViewerState] = useState<ViewerState>({
     zoom: 1,
     currentPage: 1,
@@ -36,6 +37,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         const doc = await api.getDocument(slug)
         setDocument(doc)
         setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
+        setCurrentFileIndex(0) // Reset to first file
       } catch (error) {
         console.error('Error fetching document:', error)
         setDocument(null)
@@ -47,12 +49,37 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     fetchDocument()
   }, [slug])
 
+  // Get all file URLs (from fileUrls array or legacy fileUrl)
+  const getFileUrls = (): string[] => {
+    if (!document) return []
+    if (document.fileUrls && document.fileUrls.length > 0) return document.fileUrls
+    if (document.fileUrl) return [document.fileUrl]
+    return []
+  }
+
+  const fileUrls = getFileUrls()
+  const currentFileUrl = fileUrls[currentFileIndex] || ''
+  const currentFileType = currentFileUrl ? getFileTypeFromUrl(currentFileUrl) : 'other'
+  const hasMultipleFiles = fileUrls.length > 1
+
+  const handlePrevFile = () => {
+    if (currentFileIndex > 0) {
+      setCurrentFileIndex(currentFileIndex - 1)
+    }
+  }
+
+  const handleNextFile = () => {
+    if (currentFileIndex < fileUrls.length - 1) {
+      setCurrentFileIndex(currentFileIndex + 1)
+    }
+  }
+
   const handleDownload = () => {
     if (!document) return
     
-    // R2 document - single URL
-    if (document.fileUrl) {
-      window.open(document.fileUrl, '_blank')
+    // Download current file for R2 documents
+    if (currentFileUrl) {
+      window.open(currentFileUrl, '_blank')
       return
     }
     
@@ -332,34 +359,66 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
 
         {/* Document Viewer */}
         <main className={`${embedded ? 'p-0' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
+          {/* Multi-file navigation bar */}
+          {hasMultipleFiles && (
+            <div className="flex items-center justify-between bg-gray-100 rounded-lg p-3 mb-4">
+              <button
+                onClick={handlePrevFile}
+                disabled={currentFileIndex === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                <span className="hidden sm:inline">Previous</span>
+              </button>
+              
+              <div className="text-center">
+                <span className="font-medium text-gray-900">
+                  File {currentFileIndex + 1} of {fileUrls.length}
+                </span>
+                <p className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                  {currentFileUrl.split('/').pop()?.split('?')[0]}
+                </p>
+              </div>
+              
+              <button
+                onClick={handleNextFile}
+                disabled={currentFileIndex === fileUrls.length - 1}
+                className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+
           <div className={`bg-white ${embedded ? '' : 'rounded-lg shadow-sm'} overflow-y-auto`} style={{ transform: `scale(${viewerState.zoom})`, transformOrigin: 'top center' }}>
-            {/* R2 document - single file via URL */}
-            {document.fileUrl && (
+            {/* R2 document with fileUrls array (new format) or single fileUrl */}
+            {currentFileUrl && (
               <div className="mb-4">
-                {document.fileType === 'pdf' && (
+                {currentFileType === 'pdf' && (
                   <PDFRenderer 
-                    fileUrl={document.fileUrl} 
+                    fileUrl={currentFileUrl} 
                     viewerState={viewerState}
                     onPageChange={(page) => setViewerState(prev => ({ ...prev, currentPage: page }))}
                   />
                 )}
-                {document.fileType === 'image' && (
+                {currentFileType === 'image' && (
                   <ImageRenderer 
-                    fileUrl={document.fileUrl} 
+                    fileUrl={currentFileUrl} 
                     viewerState={viewerState}
                   />
                 )}
-                {document.fileType === 'text' && (
+                {currentFileType === 'text' && (
                   <TextRenderer 
-                    fileUrl={document.fileUrl} 
+                    fileUrl={currentFileUrl} 
                     viewerState={viewerState}
                   />
                 )}
-                {document.fileType === 'other' && (
+                {currentFileType === 'other' && (
                   <div className="bg-gray-50 rounded-lg p-8 text-center">
-                    <p className="text-gray-600 mb-4">This document type cannot be previewed in the browser.</p>
+                    <p className="text-gray-600 mb-4">This file type cannot be previewed in the browser.</p>
                     <a
-                      href={document.fileUrl}
+                      href={currentFileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
@@ -372,27 +431,27 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
               </div>
             )}
             
-            {/* Legacy document with files array */}
-            {document.files && document.files.map(file => {
-              const fileUrl = api.getFileUrl(file.path)
+            {/* Legacy document with files array (local uploads) */}
+            {!currentFileUrl && document.files && document.files.map(file => {
+              const legacyFileUrl = api.getFileUrl(file.path)
               return (
                 <div key={file.id} className="mb-4">
                   {file.type === 'pdf' && (
                     <PDFRenderer 
-                      fileUrl={fileUrl} 
+                      fileUrl={legacyFileUrl} 
                       viewerState={viewerState}
                       onPageChange={(page) => setViewerState(prev => ({ ...prev, currentPage: page }))}
                     />
                   )}
                   {file.type === 'image' && (
                     <ImageRenderer 
-                      fileUrl={fileUrl} 
+                      fileUrl={legacyFileUrl} 
                       viewerState={viewerState}
                     />
                   )}
                   {file.type === 'text' && (
                     <TextRenderer 
-                      fileUrl={fileUrl} 
+                      fileUrl={legacyFileUrl} 
                       viewerState={viewerState}
                     />
                   )}
