@@ -1135,9 +1135,9 @@ export default function Admin() {
                 </label>
                 <div className="flex items-start space-x-4">
                   <div className="w-24 h-32 bg-gradient-to-br from-blue-50 to-blue-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {editingDocument?.thumbnail ? (
+                    {editingDocument?.thumbnailUrl || editingDocument?.thumbnail ? (
                       <img 
-                        src={api.getFileUrl(editingDocument.thumbnail)} 
+                        src={editingDocument.thumbnailUrl || api.getFileUrl(editingDocument.thumbnail!)} 
                         alt="Current thumbnail" 
                         className="object-cover w-full h-full"
                       />

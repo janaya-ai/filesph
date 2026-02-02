@@ -152,7 +152,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   if (document.thumbnailUrl) {
     thumbnailUrl = document.thumbnailUrl
   } else if (document.thumbnail) {
-    thumbnailUrl = `http://localhost:3001/${document.thumbnail}`
+    thumbnailUrl = api.getFileUrl(document.thumbnail)
   }
 
   // Determine encoding format for structured data
