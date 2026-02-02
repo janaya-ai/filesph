@@ -754,7 +754,7 @@ app.get('/api/documents/:id/related', async (req, res) => {
   }
 })
 
-// Helper to detect file type from URL
+// Helper to detect file type from URL (synchronous, extension-based)
 function getFileTypeFromUrl(url) {
   const urlLower = url.toLowerCase()
   if (urlLower.includes('.pdf')) return 'pdf'
@@ -765,11 +765,47 @@ function getFileTypeFromUrl(url) {
   return 'other'
 }
 
-// Default placeholder thumbnails for different file types
-const defaultThumbnails = {
-  pdf: '/api/files/placeholder-pdf.png',
-  text: '/api/files/placeholder-text.png',
-  other: '/api/files/placeholder-file.png'
+/**
+ * Async version of getFileTypeFromUrl that also checks Content-Type header for R2 URLs.
+ * This is more reliable for R2 URLs that may not have file extensions.
+ * @param {string} url - URL to check
+ * @returns {Promise<'pdf'|'image'|'text'|'other'>} - Detected file type
+ */
+async function getFileTypeFromUrlAsync(url) {
+  // First try the simple extension-based detection
+  const extensionType = getFileTypeFromUrl(url)
+  if (extensionType !== 'other') {
+    return extensionType
+  }
+  
+  // If extension detection returned 'other', try fetching Content-Type header
+  // This is especially useful for R2 URLs without file extensions
+  try {
+    console.log(`Checking Content-Type for URL: ${url}`)
+    const response = await fetch(url, { method: 'HEAD' })
+    if (!response.ok) {
+      console.log(`HEAD request failed with status: ${response.status}`)
+      return 'other'
+    }
+    
+    const contentType = response.headers.get('content-type') || ''
+    console.log(`Content-Type header: ${contentType}`)
+    
+    if (contentType.includes('application/pdf')) {
+      return 'pdf'
+    }
+    if (contentType.includes('image/')) {
+      return 'image'
+    }
+    if (contentType.includes('text/plain') || contentType.includes('text/csv')) {
+      return 'text'
+    }
+    
+    return 'other'
+  } catch (error) {
+    console.error('Error checking Content-Type:', error.message)
+    return 'other'
+  }
 }
 
 // Create new document with R2 URL (JSON body)
@@ -815,7 +851,9 @@ app.post('/api/documents', async (req, res) => {
       const documentId = uuidv4()
       
       // Get file type from first URL for thumbnail detection
-      const firstFileType = getFileTypeFromUrl(urls[0])
+      // Use async version to properly detect file types from R2 URLs without extensions
+      const firstFileType = await getFileTypeFromUrlAsync(urls[0])
+      console.log(`Detected file type for ${urls[0]}: ${firstFileType}`)
 
       // Determine thumbnail URL
       let finalThumbnailUrl = thumbnailUrl
@@ -828,16 +866,16 @@ app.post('/api/documents', async (req, res) => {
             finalThumbnailUrl = generatedThumb
             console.log('PDF thumbnail generated successfully:', finalThumbnailUrl)
           } else {
-            // Fall back to placeholder if generation fails
-            finalThumbnailUrl = defaultThumbnails.pdf
-            console.log('PDF thumbnail generation failed, using placeholder')
+            // Fall back to null if generation fails - frontend will show fallback icon
+            finalThumbnailUrl = null
+            console.log('PDF thumbnail generation failed, thumbnailUrl will be null')
           }
         } else if (firstFileType === 'image') {
           // Use the first image as thumbnail
           finalThumbnailUrl = urls[0]
         } else {
-          // Use placeholder for other file types
-          finalThumbnailUrl = defaultThumbnails[firstFileType] || defaultThumbnails.other
+          // For other file types, set to null - frontend will show fallback icon
+          finalThumbnailUrl = null
         }
       }
 
@@ -1072,13 +1110,22 @@ app.post('/api/documents/:id/regenerate-thumbnail', async (req, res) => {
 
     const document = data.documents[docIndex]
     
-    // Get PDF URL from document
+    // Get PDF URL from document - use async version to check Content-Type for R2 URLs
     let pdfUrl = null
     if (document.fileUrls && document.fileUrls.length > 0) {
-      // Find first PDF in fileUrls
-      pdfUrl = document.fileUrls.find(url => getFileTypeFromUrl(url) === 'pdf')
-    } else if (document.fileUrl && getFileTypeFromUrl(document.fileUrl) === 'pdf') {
-      pdfUrl = document.fileUrl
+      // Find first PDF in fileUrls - check each URL with async function
+      for (const url of document.fileUrls) {
+        const fileType = await getFileTypeFromUrlAsync(url)
+        if (fileType === 'pdf') {
+          pdfUrl = url
+          break
+        }
+      }
+    } else if (document.fileUrl) {
+      const fileType = await getFileTypeFromUrlAsync(document.fileUrl)
+      if (fileType === 'pdf') {
+        pdfUrl = document.fileUrl
+      }
     }
     
     if (!pdfUrl) {
