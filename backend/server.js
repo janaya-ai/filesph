@@ -183,12 +183,21 @@ async function ensureUniqueSlug(baseSlug, data, excludeId = null) {
 
 // Format document for API response (convert absolute paths to filenames)
 function formatDocumentForResponse(doc) {
+  // Handle R2 documents (no files array)
+  if (doc.fileUrl) {
+    return {
+      ...doc,
+      thumbnail: doc.thumbnail ? doc.thumbnail.split(path.sep).pop() : doc.thumbnail
+    }
+  }
+  
+  // Handle legacy documents with files array
   return {
     ...doc,
-    files: doc.files.map(file => ({
+    files: doc.files ? doc.files.map(file => ({
       ...file,
       path: file.filename // Use filename instead of absolute path for API
-    })),
+    })) : [],
     thumbnail: doc.thumbnail ? doc.thumbnail.split(path.sep).pop() : doc.thumbnail
   }
 }
