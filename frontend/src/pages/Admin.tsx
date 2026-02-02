@@ -68,6 +68,8 @@ export default function Admin() {
   // R2 URL mode state (multiple URLs)
   const [r2FileUrls, setR2FileUrls] = useState<string[]>([''])
   const [r2ThumbnailUrl, setR2ThumbnailUrl] = useState('')
+  // Related articles state
+  const [relatedArticles, setRelatedArticles] = useState<{title: string, url: string}[]>([])
 
   // Edit document modal state
   const [editDocumentModalOpen, setEditDocumentModalOpen] = useState(false)
@@ -129,6 +131,7 @@ export default function Admin() {
       try {
         setUploading(true)
         const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        const validArticles = relatedArticles.filter(a => a.title.trim() && a.url.trim())
         await api.createDocument({
           name: uploadName,
           description: uploadDescription,
@@ -139,12 +142,14 @@ export default function Admin() {
           releaseDate: uploadReleaseDate || undefined,
           deadline: uploadDeadline || undefined,
           sourceAgency: uploadSourceAgency || undefined,
-          tags
+          tags,
+          relatedArticles: validArticles.length > 0 ? validArticles : undefined
         })
         
         // Reset form
         setR2FileUrls([''])
         setR2ThumbnailUrl('')
+        setRelatedArticles([])
         setUploadName('')
         setUploadDescription('')
         setUploadTags('')
@@ -546,6 +551,58 @@ export default function Admin() {
                       <p className="mt-1 text-xs text-gray-500">
                         Leave empty to use first image as thumbnail, or placeholder for PDFs/docs
                       </p>
+                    </div>
+
+                    {/* Related Articles Section */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Related Guides / Articles (optional)
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Link to blog posts or guides related to this document
+                      </p>
+                      {relatedArticles.map((article, index) => (
+                        <div key={index} className="flex gap-2 mb-2">
+                          <input
+                            type="text"
+                            value={article.title}
+                            onChange={(e) => {
+                              const updated = [...relatedArticles]
+                              updated[index] = { ...updated[index], title: e.target.value }
+                              setRelatedArticles(updated)
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Link title (e.g., How to Fill Out PDS)"
+                          />
+                          <input
+                            type="url"
+                            value={article.url}
+                            onChange={(e) => {
+                              const updated = [...relatedArticles]
+                              updated[index] = { ...updated[index], url: e.target.value }
+                              setRelatedArticles(updated)
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="https://example.com/article"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRelatedArticles(relatedArticles.filter((_, i) => i !== index))
+                            }}
+                            className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setRelatedArticles([...relatedArticles, { title: '', url: '' }])}
+                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <span>+</span> Add related article
+                      </button>
                     </div>
                   </>
                 )}

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Document, Category } from '../types'
+import type { Document, Category, RelatedArticle } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
@@ -19,6 +19,8 @@ export interface CreateDocumentData {
   deadline?: string
   sourceAgency?: string
   tags?: string[]
+  // Related blog articles/guides
+  relatedArticles?: RelatedArticle[]
 }
 
 export const api = {

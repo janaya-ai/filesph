@@ -782,7 +782,8 @@ app.post('/api/documents', async (req, res) => {
         releaseDate,
         deadline,
         sourceAgency,
-        tags = []
+        tags = [],
+        relatedArticles = []  // Array of {title, url} for related guides/blog posts
       } = req.body
 
       // Support both single fileUrl and multiple fileUrls
@@ -847,7 +848,8 @@ app.post('/api/documents', async (req, res) => {
         totalPages: urls.length,
         views: 0,
         downloads: 0,
-        sourceAgency: sourceAgency || null
+        sourceAgency: sourceAgency || null,
+        relatedArticles: Array.isArray(relatedArticles) ? relatedArticles.filter(a => a.title && a.url) : []
       }
 
       data.documents.push(newDocument)

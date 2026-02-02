@@ -1,3 +1,8 @@
+export interface RelatedArticle {
+  title: string
+  url: string
+}
+
 export interface Document {
   id: string
   name: string
@@ -22,6 +27,8 @@ export interface Document {
   views?: number
   downloads?: number
   sourceAgency?: string
+  // Related blog articles/guides
+  relatedArticles?: RelatedArticle[]
 }
 
 // Helper to get file type from URL

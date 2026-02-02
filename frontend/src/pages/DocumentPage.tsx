@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code, ChevronLeft, ChevronRight, FileArchive } from 'lucide-react'
+import { Download, Printer, Share2, ZoomIn, ZoomOut, Maximize2, ArrowLeft, Code, ChevronLeft, ChevronRight, FileArchive, ExternalLink, BookOpen } from 'lucide-react'
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
@@ -369,6 +369,30 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                 {document.totalPages} {document.totalPages === 1 ? 'page' : 'pages'}
               </span>
             </div>
+
+            {/* Related Guides/Articles */}
+            {document.relatedArticles && document.relatedArticles.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 text-gray-700 mb-2">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="text-sm font-medium">Related Guides</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {document.relatedArticles.map((article, index) => (
+                    <a
+                      key={index}
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 text-sm rounded-full transition"
+                    >
+                      <span>{article.title}</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
