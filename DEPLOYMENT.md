@@ -2,6 +2,19 @@
 
 This guide explains how to deploy the filesph application to Render.
 
+## ⚠️ CRITICAL: Data Persistence Warning
+
+**Before deploying, read this carefully!**
+
+By default, this application will store uploaded files and data in **ephemeral storage** that is **DELETED** every time:
+- The server restarts
+- You deploy a new version  
+- The container is replaced or restarted
+
+**This means all uploaded documents will disappear after a few hours or days!**
+
+To prevent data loss, you **MUST** configure persistent storage. See the [Persistent Storage Configuration](#persistent-storage-configuration) section below.
+
 ## Prerequisites
 - A [Render account](https://render.com)
 - Your GitHub repository connected to Render
@@ -16,15 +29,29 @@ This guide explains how to deploy the filesph application to Render.
 4. Connect your repository: `janaya-ai/filesph`
 5. Render will automatically detect the `render.yaml` and create both services
 6. Click "Apply" to deploy
-7. **Important**: After deployment, you need to set the FRONTEND_URL:
+
+**Note**: The backend will fail to start initially because FRONTEND_URL is not set. This is expected. Continue with the following steps.
+
+7. **CRITICAL - Configure Persistent Storage** (Do this IMMEDIATELY):
    - Go to the backend service (`filesph-backend`) in the Render dashboard
-   - Click "Environment" in the left sidebar
-   - Add environment variable:
-     - Key: `FRONTEND_URL`
-     - Value: Your frontend URL (e.g., `https://filesph-frontend.onrender.com`)
+   - Click "Disks" in the left sidebar
+   - Click "Add Disk"
+   - Configure:
+     - **Name**: `filesph-data`
+     - **Mount Path**: `/var/data`
+     - **Size**: At least 1 GB (choose based on your storage needs)
+   - Click "Save"
+
+8. **Set Required Environment Variables**:
+   - Still in the backend service settings, click "Environment" in the left sidebar
+   - Add two environment variables:
+     - Key: `STORAGE_PATH` Value: `/var/data`
+     - Key: `FRONTEND_URL` Value: Your frontend URL (e.g., `https://filesph-frontend.onrender.com`)
    - Click "Save Changes" (this will trigger a redeploy of the backend)
 
-**Note**: The backend will fail to start initially because FRONTEND_URL is not set. This is a security feature. Once you add the frontend URL in step 7, the backend will redeploy and start successfully.
+9. Wait for the backend to redeploy successfully with persistent storage enabled
+
+**Without step 7-8, all your documents will be lost on every restart!**
 
 ### Option 2: Manual Deployment
 
@@ -58,13 +85,27 @@ This guide explains how to deploy the filesph application to Render.
 13. Click "Create Static Site"
 14. **Copy the frontend URL** (e.g., `https://filesph-frontend.onrender.com`)
 
-#### Configure Backend CORS
+#### Configure Backend (CORS and Persistent Storage)
 15. Go back to the backend service settings
-16. Click "Environment" in the left sidebar
-17. Add environment variable:
-   - `FRONTEND_URL`: Your frontend URL from step 14
-18. Click "Save Changes" (this will trigger a redeploy of the backend)
-19. Wait for backend to redeploy successfully
+
+**CRITICAL - Add Persistent Disk First:**
+16. Click "Disks" in the left sidebar
+17. Click "Add Disk"
+18. Configure:
+    - **Name**: `filesph-data`
+    - **Mount Path**: `/var/data`
+    - **Size**: At least 1 GB (choose based on your storage needs)
+19. Click "Save"
+
+**Then Configure Environment Variables:**
+20. Click "Environment" in the left sidebar
+21. Add two environment variables:
+    - Key: `STORAGE_PATH` Value: `/var/data`
+    - Key: `FRONTEND_URL` Value: Your frontend URL from step 14
+22. Click "Save Changes" (this will trigger a redeploy of the backend)
+23. Wait for backend to redeploy successfully
+
+**Without persistent storage (steps 16-19), all your documents will be lost on every restart!**
 
 ## Post-Deployment
 
