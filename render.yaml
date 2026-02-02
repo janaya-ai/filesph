@@ -14,6 +14,26 @@ services:
       # Add it via: Dashboard > Backend Service > Environment > Add Variable
       # Value should be: https://filesph-frontend.onrender.com
     
+    # ⚠️  CRITICAL: PERSISTENT STORAGE CONFIGURATION REQUIRED ⚠️
+    # 
+    # This configuration does NOT include persistent storage by default!
+    # Without it, all uploaded documents will be DELETED on every restart.
+    #
+    # Render does not support disk configuration in render.yaml.
+    # You MUST manually configure a disk after deployment:
+    #
+    # 1. Go to: Dashboard > filesph-backend > Disks
+    # 2. Click "Add Disk"
+    # 3. Configure:
+    #    - Name: filesph-data
+    #    - Mount Path: /var/data
+    #    - Size: At least 1 GB
+    # 4. Add environment variable:
+    #    - Key: STORAGE_PATH
+    #    - Value: /var/data
+    #
+    # See: https://github.com/janaya-ai/filesph/blob/main/DEPLOYMENT.md#persistent-storage-configuration
+    
   # Frontend Static Site
   - type: web
     name: filesph-frontend

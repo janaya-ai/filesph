@@ -201,6 +201,19 @@ filesph.com/
 
 ## 🌐 Deployment
 
+⚠️ **CRITICAL: Data Persistence Required**
+
+Before deploying to production, you **MUST** configure persistent storage, or all uploaded documents will be deleted when the server restarts! See the [DEPLOYMENT.md](DEPLOYMENT.md) guide for detailed instructions.
+
+### Quick Deployment Checklist
+- [ ] Deploy backend and frontend services
+- [ ] **Configure persistent disk/volume** (CRITICAL!)
+- [ ] Set `STORAGE_PATH` environment variable to persistent disk path
+- [ ] Set `FRONTEND_URL` environment variable for CORS
+- [ ] Test that storage is persistent
+
+For detailed deployment instructions for Render, Railway, and other platforms, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ### Frontend (Build for Production)
 ```bash
 cd frontend
@@ -217,12 +230,17 @@ VITE_API_URL=https://your-backend-url.com npm run build
 ### Backend
 - Can be deployed to any Node.js hosting (Heroku, Railway, Render, etc.)
 - Set environment variable `PORT` if needed
-- Ensure `uploads/` directory is persistent
+- **CRITICAL**: Configure persistent storage and set `STORAGE_PATH` environment variable
 
 ### Environment Variables
 
 #### Backend
 - `PORT` - Backend server port (default: 3001)
+- `STORAGE_PATH` - **REQUIRED for production** - Path to persistent storage volume (e.g., `/var/data`)
+- `FRONTEND_URL` - **REQUIRED for production** - Frontend URL for CORS (e.g., `https://your-frontend.com`)
+- `ADMIN_PASSWORD` - Admin login password (default: `admin123`)
+- `JWT_SECRET` - JWT secret for authentication (change in production)
+- `NODE_ENV` - Set to `production` for production deployment
 
 #### Frontend (Build Time)
 - `VITE_API_URL` - Backend URL for production deployment (optional)

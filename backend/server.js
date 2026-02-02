@@ -90,7 +90,13 @@ if (process.env.NODE_ENV !== 'production') {
   console.log(`Uploads directory: ${uploadsDir}`)
   console.log(`Data file: ${dataFile}`)
 } else {
-  console.log('Storage path configured from STORAGE_PATH environment variable')
+  if (process.env.STORAGE_PATH) {
+    console.log('✓ Persistent storage configured via STORAGE_PATH environment variable')
+  } else {
+    console.log('⚠️  WARNING: STORAGE_PATH not configured - using ephemeral storage')
+    console.log('⚠️  All uploaded documents and data will be LOST when the container restarts!')
+    console.log('⚠️  See https://github.com/janaya-ai/filesph/blob/main/DEPLOYMENT.md#persistent-storage-configuration')
+  }
 }
 
 await fs.mkdir(uploadsDir, { recursive: true })
@@ -748,4 +754,28 @@ app.get('/api/storage-status', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
+  
+  // Final warning about ephemeral storage in production
+  if (process.env.NODE_ENV === 'production' && !process.env.STORAGE_PATH) {
+    console.log('')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('⚠️  CRITICAL WARNING: EPHEMERAL STORAGE DETECTED')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('')
+    console.log('Your data is NOT persistent!')
+    console.log('All uploads and documents will be DELETED when:')
+    console.log('  • The server restarts')
+    console.log('  • You deploy a new version')
+    console.log('  • The container is replaced')
+    console.log('')
+    console.log('To fix this issue:')
+    console.log('1. Configure persistent storage for your deployment platform')
+    console.log('2. Set the STORAGE_PATH environment variable')
+    console.log('')
+    console.log('Documentation:')
+    console.log('https://github.com/janaya-ai/filesph/blob/main/DEPLOYMENT.md#persistent-storage-configuration')
+    console.log('')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('')
+  }
 })
