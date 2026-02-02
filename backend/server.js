@@ -1192,12 +1192,14 @@ app.delete('/api/documents/:id', async (req, res) => {
 
     const document = data.documents[docIndex]
 
-    // Delete physical files
-    for (const file of document.files) {
-      try {
-        await fs.unlink(file.path)
-      } catch (err) {
-        console.error('Failed to delete file:', file.path, err)
+    // Delete physical files (only for legacy file uploads)
+    if (document.files && Array.isArray(document.files)) {
+      for (const file of document.files) {
+        try {
+          await fs.unlink(file.path)
+        } catch (err) {
+          console.error('Failed to delete file:', file.path, err)
+        }
       }
     }
 
