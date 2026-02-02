@@ -2,10 +2,10 @@ services:
   # Backend API Service
   - type: web
     name: filesph-backend
-    env: node
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
+    # Use Docker to install native dependencies for canvas (PDF thumbnail generation)
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     envVars:
       - key: NODE_ENV
         value: production

@@ -65,25 +65,46 @@ if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) {
 // PDF Thumbnail Generation
 // ========================================
 
+// Check if canvas is available (requires native dependencies)
+let canvasAvailable = false
+try {
+  const testCanvas = createCanvas(1, 1)
+  testCanvas.getContext('2d')
+  canvasAvailable = true
+  console.log('Canvas library loaded successfully - PDF thumbnail generation enabled')
+} catch (error) {
+  console.warn('Canvas library not available - PDF thumbnail generation disabled')
+  console.warn('This usually means native dependencies (Cairo, Pango, etc.) are not installed')
+  console.warn('Install with: apt-get install libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev')
+}
+
 /**
  * Generate a thumbnail from the first page of a PDF
  * @param {string} pdfUrl - URL of the PDF file
  * @returns {Promise<Buffer|null>} - PNG image buffer or null on error
  */
 async function generatePdfThumbnail(pdfUrl) {
+  if (!canvasAvailable) {
+    console.log('Skipping thumbnail generation - canvas not available')
+    return null
+  }
+  
   try {
-    console.log(`Generating thumbnail for PDF: ${pdfUrl}`)
+    console.log(`[Thumbnail] Starting generation for: ${pdfUrl}`)
     
     // Fetch the PDF
+    console.log('[Thumbnail] Fetching PDF...')
     const response = await fetch(pdfUrl)
     if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.status}`)
+      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`)
     }
+    console.log(`[Thumbnail] PDF fetched: ${response.headers.get('content-length') || 'unknown'} bytes`)
     
     const pdfBuffer = await response.arrayBuffer()
     const pdfData = new Uint8Array(pdfBuffer)
     
     // Load the PDF with pdf.js
+    console.log('[Thumbnail] Loading PDF with pdf.js...')
     // Configure standardFontDataUrl to use the fonts included with pdfjs-dist
     // Use import.meta.resolve for robust path resolution across different environments
     const pdfjsDistPath = path.dirname(fileURLToPath(import.meta.resolve('pdfjs-dist/package.json')))
@@ -95,6 +116,7 @@ async function generatePdfThumbnail(pdfUrl) {
       useSystemFonts: false
     })
     const pdfDoc = await loadingTask.promise
+    console.log(`[Thumbnail] PDF loaded: ${pdfDoc.numPages} pages`)
     
     // Get the first page
     const page = await pdfDoc.getPage(1)
@@ -102,6 +124,7 @@ async function generatePdfThumbnail(pdfUrl) {
     // Set up the canvas with good quality (scale 2x for retina)
     const scale = 2
     const viewport = page.getViewport({ scale })
+    console.log(`[Thumbnail] Rendering page: ${viewport.width}x${viewport.height}`)
     
     // Create canvas
     const canvas = createCanvas(viewport.width, viewport.height)
@@ -112,9 +135,11 @@ async function generatePdfThumbnail(pdfUrl) {
       canvasContext: context,
       viewport: viewport,
     }).promise
+    console.log('[Thumbnail] Page rendered to canvas')
     
     // Convert canvas to PNG buffer
     const pngBuffer = canvas.toBuffer('image/png')
+    console.log(`[Thumbnail] PNG buffer: ${pngBuffer.length} bytes`)
     
     // Resize to thumbnail size using sharp (400x600 max, maintaining aspect ratio)
     const thumbnailBuffer = await sharp(pngBuffer)
@@ -125,10 +150,11 @@ async function generatePdfThumbnail(pdfUrl) {
       .jpeg({ quality: 85 })
       .toBuffer()
     
-    console.log(`Thumbnail generated: ${thumbnailBuffer.length} bytes`)
+    console.log(`[Thumbnail] Final thumbnail: ${thumbnailBuffer.length} bytes`)
     return thumbnailBuffer
   } catch (error) {
-    console.error('Error generating PDF thumbnail:', error)
+    console.error('[Thumbnail] Error generating PDF thumbnail:', error.message)
+    console.error('[Thumbnail] Stack:', error.stack)
     return null
   }
 }
