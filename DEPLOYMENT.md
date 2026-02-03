@@ -151,6 +151,47 @@ For other deployment platforms, set the `STORAGE_PATH` environment variable to p
 - `data.json` - Document and category metadata
 - `uploads/` - Uploaded files and thumbnails
 
+## Custom Domain Setup
+
+If you want to use your own domain instead of the default Render/Railway domain:
+
+### Step 1: Configure Custom Domain on Your Platform
+
+**On Render:**
+1. Go to your frontend service settings
+2. Click "Custom Domains" 
+3. Add your custom domain (e.g., `mydomain.com`)
+4. Configure DNS as instructed by Render
+
+**On Railway:**
+1. Go to your frontend service settings
+2. Click "Settings" → "Domains"
+3. Add your custom domain
+4. Configure DNS as instructed by Railway
+
+### Step 2: Update Backend CORS Configuration
+
+This is **critical** - after adding a custom domain, you must update the `FRONTEND_URL` environment variable on your backend:
+
+1. Go to your backend service settings
+2. Update the `FRONTEND_URL` environment variable to include **both** the original and custom domains (comma-separated):
+   ```
+   FRONTEND_URL=https://old-render-domain.onrender.com,https://mycustomdomain.com
+   ```
+3. Save and wait for the backend to redeploy
+
+**Why both URLs?** Including both ensures:
+- Users accessing via the old URL still work during migration
+- Users accessing via the new custom domain work immediately
+- No login/authentication issues due to CORS blocking
+
+### Step 3: (Optional) Remove Old Domain
+
+Once you've fully migrated to your custom domain, you can update `FRONTEND_URL` to only include your custom domain:
+```
+FRONTEND_URL=https://mycustomdomain.com
+```
+
 ## Important Notes
 
 - Free tier services on Render may spin down after inactivity
@@ -159,6 +200,14 @@ For other deployment platforms, set the `STORAGE_PATH` environment variable to p
 - **Data persistence requires a paid plan on most platforms** (free tiers typically have ephemeral storage)
 
 ## Troubleshooting
+
+### Login Not Working After Domain Change
+- **Cause**: The `FRONTEND_URL` environment variable on the backend doesn't include your new domain, causing CORS to block login requests.
+- **Solution**: Update `FRONTEND_URL` on your backend to include your new domain. You can use comma-separated URLs to include multiple domains:
+  ```
+  FRONTEND_URL=https://old-domain.onrender.com,https://yournewdomain.com
+  ```
+  After updating, redeploy the backend service.
 
 ### Uploaded Documents Disappear After a Few Hours
 - **Cause**: Persistent storage is not configured. The default storage location is ephemeral and is lost when the container restarts.
@@ -170,6 +219,7 @@ For other deployment platforms, set the `STORAGE_PATH` environment variable to p
 
 ### CORS Errors
 - Ensure `FRONTEND_URL` in backend matches your frontend URL exactly (including https://)
+- For custom domains, use comma-separated URLs: `FRONTEND_URL=https://render-url.onrender.com,https://customdomain.com`
 - Check that backend CORS configuration allows your frontend domain
 - Verify the backend service has successfully redeployed after setting FRONTEND_URL
 

@@ -237,7 +237,7 @@ VITE_API_URL=https://your-backend-url.com npm run build
 #### Backend
 - `PORT` - Backend server port (default: 3001)
 - `STORAGE_PATH` - **REQUIRED for production** - Path to persistent storage volume (e.g., `/var/data`)
-- `FRONTEND_URL` - **REQUIRED for production** - Frontend URL for CORS (e.g., `https://your-frontend.com`)
+- `FRONTEND_URL` - **REQUIRED for production** - Frontend URL(s) for CORS. Supports comma-separated URLs for custom domains (e.g., `https://your-frontend.com,https://yourcustomdomain.com`)
 - `ADMIN_PASSWORD` - Admin login password (default: `admin123`)
 - `JWT_SECRET` - JWT secret for authentication (change in production)
 - `NODE_ENV` - Set to `production` for production deployment

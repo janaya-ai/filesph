@@ -28,26 +28,45 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // CORS configuration
 // FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
 // Production environments will always use HTTPS via FRONTEND_URL env variable
+// FRONTEND_URL supports multiple comma-separated URLs for custom domains
 const FALLBACK_ORIGIN = 'http://localhost:5173'
 const allowedOrigins = []
 
 if (process.env.FRONTEND_URL) {
-  try {
-    // Validate FRONTEND_URL is a valid URL
-    new URL(process.env.FRONTEND_URL)
-    allowedOrigins.push(process.env.FRONTEND_URL)
-    console.log('CORS configured for origin:', process.env.FRONTEND_URL)
-  } catch (error) {
-    // In production, invalid FRONTEND_URL is a warning (not fatal)
-    // This allows deployment to proceed, but CORS will block requests
+  // Support multiple comma-separated URLs for custom domains
+  // Parse URLs: split by comma, trim whitespace, filter empty strings
+  const rawUrls = process.env.FRONTEND_URL.split(',')
+  const urls = rawUrls.map(url => url.trim()).filter(url => url)
+  let validCount = 0
+  const invalidUrls = []
+  
+  for (const url of urls) {
+    try {
+      // Validate each URL is valid
+      new URL(url)
+      allowedOrigins.push(url)
+      validCount++
+    } catch (error) {
+      invalidUrls.push(url)
+    }
+  }
+  
+  if (validCount > 0) {
+    console.log('CORS configured for origins:', allowedOrigins.join(', '))
+  }
+  
+  if (invalidUrls.length > 0) {
+    console.warn(`WARNING: Invalid URL(s) in FRONTEND_URL: ${invalidUrls.join(', ')}`)
+  }
+  
+  // If no valid URLs and in production, warn but continue
+  if (validCount === 0) {
     if (process.env.NODE_ENV === 'production') {
-      console.warn(`WARNING: Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`)
+      console.warn('WARNING: No valid URLs in FRONTEND_URL environment variable.')
       console.warn('The API will start but CORS will block all requests until FRONTEND_URL is corrected.')
-      console.warn('Please fix FRONTEND_URL environment variable to a valid URL.')
-      // Don't add any origins - CORS will block all requests
+      console.warn('Please fix FRONTEND_URL environment variable to a valid URL (or comma-separated URLs).')
     } else {
-      // In development, fall back to localhost
-      console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
+      console.warn(`No valid URLs in FRONTEND_URL. Falling back to ${FALLBACK_ORIGIN}`)
       allowedOrigins.push(FALLBACK_ORIGIN)
     }
   }
