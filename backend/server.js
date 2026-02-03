@@ -38,28 +38,32 @@ if (process.env.FRONTEND_URL) {
     allowedOrigins.push(process.env.FRONTEND_URL)
     console.log('CORS configured for origin:', process.env.FRONTEND_URL)
   } catch (error) {
-    // In production, invalid FRONTEND_URL is a fatal error
+    // In production, invalid FRONTEND_URL is a warning (not fatal)
+    // This allows deployment to proceed, but CORS will block requests
     if (process.env.NODE_ENV === 'production') {
-      console.error(`FATAL ERROR: Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`)
-      console.error('Application cannot start with invalid FRONTEND_URL in production.')
-      process.exit(1)
+      console.warn(`WARNING: Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}`)
+      console.warn('The API will start but CORS will block all requests until FRONTEND_URL is corrected.')
+      console.warn('Please fix FRONTEND_URL environment variable to a valid URL.')
+      // Don't add any origins - CORS will block all requests
+    } else {
+      // In development, fall back to localhost
+      console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
+      allowedOrigins.push(FALLBACK_ORIGIN)
     }
-    
-    // In development, fall back to localhost
-    console.warn(`Invalid FRONTEND_URL environment variable: ${process.env.FRONTEND_URL}. Falling back to ${FALLBACK_ORIGIN}`)
-    allowedOrigins.push(FALLBACK_ORIGIN)
   }
 } else {
-  // In production, missing FRONTEND_URL is a fatal error
+  // In production, missing FRONTEND_URL is a warning (not fatal)
+  // This allows initial deployment before frontend URL is available
   if (process.env.NODE_ENV === 'production') {
-    console.error('FATAL ERROR: FRONTEND_URL environment variable is not set.')
-    console.error('Application cannot start without FRONTEND_URL in production.')
-    process.exit(1)
+    console.warn('WARNING: FRONTEND_URL environment variable is not set.')
+    console.warn('The API will start but CORS will block all requests until FRONTEND_URL is configured.')
+    console.warn('Please set FRONTEND_URL environment variable to your frontend URL as soon as possible.')
+    // Don't add any origins - CORS will block all requests
+  } else {
+    // In development, use localhost
+    console.log('Using default CORS origin for development:', FALLBACK_ORIGIN)
+    allowedOrigins.push(FALLBACK_ORIGIN)
   }
-  
-  // In development, use localhost
-  console.log('Using default CORS origin for development:', FALLBACK_ORIGIN)
-  allowedOrigins.push(FALLBACK_ORIGIN)
 }
 
 // Enable CORS with credentials support for authentication
