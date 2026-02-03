@@ -25,10 +25,6 @@ const storagePath = process.env.STORAGE_PATH || __dirname
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-// Admin credentials (in production, use environment variables and proper hashing)
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
-
 // CORS configuration
 // FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
 // Production environments will always use HTTPS via FRONTEND_URL env variable
