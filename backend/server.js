@@ -566,6 +566,7 @@ app.post('/api/auth/change-password', authenticateAdmin, async (req, res) => {
     }
     
     // Store the new password
+    // Note: In production, use bcrypt or argon2 to hash passwords
     data.adminPassword = newPassword
     await writeData(data)
     
