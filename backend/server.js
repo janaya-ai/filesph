@@ -521,13 +521,59 @@ function authenticateAdmin(req, res, next) {
 // Routes
 
 // Authentication
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { password } = req.body
   
-  if (password === ADMIN_PASSWORD) {
-    res.json({ token: JWT_SECRET, success: true })
-  } else {
-    res.status(401).json({ error: 'Invalid password' })
+  try {
+    const data = await readData()
+    // Check stored password first, then fall back to environment variable
+    const currentPassword = data.adminPassword || ADMIN_PASSWORD
+    
+    if (password === currentPassword) {
+      res.json({ token: JWT_SECRET, success: true })
+    } else {
+      res.status(401).json({ error: 'Invalid password' })
+    }
+  } catch (error) {
+    // If data read fails, fall back to environment variable
+    if (password === ADMIN_PASSWORD) {
+      res.json({ token: JWT_SECRET, success: true })
+    } else {
+      res.status(401).json({ error: 'Invalid password' })
+    }
+  }
+})
+
+// Change password
+app.post('/api/auth/change-password', authenticateAdmin, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+  
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' })
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' })
+  }
+  
+  try {
+    const data = await readData()
+    // Check stored password first, then fall back to environment variable
+    const storedPassword = data.adminPassword || ADMIN_PASSWORD
+    
+    if (currentPassword !== storedPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' })
+    }
+    
+    // Store the new password
+    // Note: In production, use bcrypt or argon2 to hash passwords
+    data.adminPassword = newPassword
+    await writeData(data)
+    
+    res.json({ success: true, message: 'Password changed successfully' })
+  } catch (error) {
+    console.error('Failed to change password:', error)
+    res.status(500).json({ error: 'Failed to change password' })
   }
 })
 
