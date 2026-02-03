@@ -30,6 +30,16 @@ export const api = {
     return response.data
   },
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const token = localStorage.getItem('adminToken')
+    const response = await axios.post(
+      `${API_BASE}/auth/change-password`,
+      { currentPassword, newPassword },
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+    return response.data
+  },
+
   // Documents
   async getDocuments(): Promise<Document[]> {
     const response = await axios.get(`${API_BASE}/documents`)
