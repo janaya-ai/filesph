@@ -381,8 +381,9 @@ function DocumentCard({ document, categories, featured }: DocumentCardProps) {
           <img 
             src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
             alt={document.name} 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain bg-white"
             loading="lazy"
+            style={{ imageRendering: 'auto' }}
           />
         ) : (
           <FileText className="h-12 w-12 text-blue-300" />
@@ -469,8 +470,9 @@ function CompactDocumentCard({ document, categories, rank, showDate }: CompactDo
             <img 
               src={document.thumbnailUrl || api.getFileUrl(document.thumbnail!)} 
               alt="" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain bg-white"
               loading="lazy"
+              style={{ imageRendering: 'auto' }}
             />
           ) : (
             <FileText className="h-5 w-5 text-blue-300" />

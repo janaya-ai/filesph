@@ -78,8 +78,9 @@ export default function RelatedDocuments({
                 <img
                   src={doc.thumbnailUrl || (doc.thumbnail ? api.getFileUrl(doc.thumbnail) : '')}
                   alt={doc.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   loading="lazy"
+                  style={{ imageRendering: 'auto' }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">

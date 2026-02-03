@@ -9,10 +9,6 @@ import { v4 as uuidv4 } from 'uuid'
 import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
 import archiver from 'archiver'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
-import { createCanvas } from 'canvas'
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
-import sharp from 'sharp'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -29,186 +25,9 @@ const storagePath = process.env.STORAGE_PATH || __dirname
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-// ========================================
-// R2 Configuration for Thumbnail Storage
-// ========================================
-// Set these environment variables for R2 uploads:
-// R2_ACCOUNT_ID - Your Cloudflare account ID
-// R2_ACCESS_KEY_ID - R2 API token access key
-// R2_SECRET_ACCESS_KEY - R2 API token secret key
-// R2_BUCKET_NAME - Your R2 bucket name
-// R2_PUBLIC_URL - Public URL for your R2 bucket (e.g., https://pub-xxx.r2.dev)
-
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL
-
-// Initialize R2 client (S3-compatible)
-let r2Client = null
-if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) {
-  r2Client = new S3Client({
-    region: 'auto',
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
-    },
-  })
-  console.log('R2 client initialized for thumbnail uploads')
-} else {
-  console.log('R2 credentials not configured - thumbnail generation disabled')
-}
-
-// ========================================
-// PDF Thumbnail Generation
-// ========================================
-
-// Check if canvas is available (requires native dependencies)
-let canvasAvailable = false
-try {
-  const testCanvas = createCanvas(1, 1)
-  testCanvas.getContext('2d')
-  canvasAvailable = true
-  console.log('Canvas library loaded successfully - PDF thumbnail generation enabled')
-} catch (error) {
-  console.warn('Canvas library not available - PDF thumbnail generation disabled')
-  console.warn('This usually means native dependencies (Cairo, Pango, etc.) are not installed')
-  console.warn('Install with: apt-get install libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev')
-}
-
-/**
- * Generate a thumbnail from the first page of a PDF
- * @param {string} pdfUrl - URL of the PDF file
- * @returns {Promise<Buffer|null>} - PNG image buffer or null on error
- */
-async function generatePdfThumbnail(pdfUrl) {
-  if (!canvasAvailable) {
-    console.log('Skipping thumbnail generation - canvas not available')
-    return null
-  }
-  
-  try {
-    console.log(`[Thumbnail] Starting generation for: ${pdfUrl}`)
-    
-    // Fetch the PDF
-    console.log('[Thumbnail] Fetching PDF...')
-    const response = await fetch(pdfUrl)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`)
-    }
-    console.log(`[Thumbnail] PDF fetched: ${response.headers.get('content-length') || 'unknown'} bytes`)
-    
-    const pdfBuffer = await response.arrayBuffer()
-    const pdfData = new Uint8Array(pdfBuffer)
-    
-    // Load the PDF with pdf.js
-    console.log('[Thumbnail] Loading PDF with pdf.js...')
-    // Configure standardFontDataUrl to use the fonts included with pdfjs-dist
-    // Use import.meta.resolve for robust path resolution across different environments
-    const pdfjsDistPath = path.dirname(fileURLToPath(import.meta.resolve('pdfjs-dist/package.json')))
-    // PDF.js requires a trailing separator for the standardFontDataUrl
-    const standardFontDataUrl = path.join(pdfjsDistPath, 'standard_fonts') + path.sep
-    const loadingTask = pdfjsLib.getDocument({ 
-      data: pdfData,
-      standardFontDataUrl: standardFontDataUrl,
-      useSystemFonts: false
-    })
-    const pdfDoc = await loadingTask.promise
-    console.log(`[Thumbnail] PDF loaded: ${pdfDoc.numPages} pages`)
-    
-    // Get the first page
-    const page = await pdfDoc.getPage(1)
-    
-    // Set up the canvas with good quality (scale 2x for retina)
-    const scale = 2
-    const viewport = page.getViewport({ scale })
-    console.log(`[Thumbnail] Rendering page: ${viewport.width}x${viewport.height}`)
-    
-    // Create canvas
-    const canvas = createCanvas(viewport.width, viewport.height)
-    const context = canvas.getContext('2d')
-    
-    // Render the page to canvas
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-    }).promise
-    console.log('[Thumbnail] Page rendered to canvas')
-    
-    // Convert canvas to PNG buffer
-    const pngBuffer = canvas.toBuffer('image/png')
-    console.log(`[Thumbnail] PNG buffer: ${pngBuffer.length} bytes`)
-    
-    // Resize to thumbnail size using sharp (400x600 max, maintaining aspect ratio)
-    const thumbnailBuffer = await sharp(pngBuffer)
-      .resize(400, 600, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: 85 })
-      .toBuffer()
-    
-    console.log(`[Thumbnail] Final thumbnail: ${thumbnailBuffer.length} bytes`)
-    return thumbnailBuffer
-  } catch (error) {
-    console.error('[Thumbnail] Error generating PDF thumbnail:', error.message)
-    console.error('[Thumbnail] Stack:', error.stack)
-    return null
-  }
-}
-
-/**
- * Upload a thumbnail to R2
- * @param {Buffer} imageBuffer - Image data to upload
- * @param {string} filename - Filename for the thumbnail
- * @returns {Promise<string|null>} - Public URL of uploaded thumbnail or null on error
- */
-async function uploadThumbnailToR2(imageBuffer, filename) {
-  if (!r2Client || !R2_BUCKET_NAME || !R2_PUBLIC_URL) {
-    console.log('R2 not configured, skipping thumbnail upload')
-    return null
-  }
-  
-  try {
-    const key = `thumbnails/${filename}`
-    
-    await r2Client.send(new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      Body: imageBuffer,
-      ContentType: 'image/jpeg',
-    }))
-    
-    const publicUrl = `${R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`
-    console.log(`Thumbnail uploaded to R2: ${publicUrl}`)
-    return publicUrl
-  } catch (error) {
-    console.error('Error uploading thumbnail to R2:', error)
-    return null
-  }
-}
-
-/**
- * Generate and upload thumbnail for a PDF document
- * @param {string} pdfUrl - URL of the PDF
- * @param {string} documentId - Document ID (used for filename)
- * @returns {Promise<string|null>} - Thumbnail URL or null on error
- */
-async function createPdfThumbnail(pdfUrl, documentId) {
-  // Generate thumbnail from PDF
-  const thumbnailBuffer = await generatePdfThumbnail(pdfUrl)
-  if (!thumbnailBuffer) {
-    return null
-  }
-  
-  // Upload to R2
-  const filename = `${documentId}_thumb.jpg`
-  const thumbnailUrl = await uploadThumbnailToR2(thumbnailBuffer, filename)
-  
-  return thumbnailUrl
-}
+// Admin credentials (in production, use environment variables and proper hashing)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
 // CORS configuration
 // FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
@@ -883,7 +702,7 @@ app.post('/api/documents', async (req, res) => {
       const baseSlug = generateSlug(name)
       const slug = await ensureUniqueSlug(baseSlug, data)
       
-      // Generate document ID first (needed for thumbnail filename)
+      // Generate document ID
       const documentId = uuidv4()
       
       // Get file type from first URL for thumbnail detection
@@ -891,29 +710,13 @@ app.post('/api/documents', async (req, res) => {
       const firstFileType = await getFileTypeFromUrlAsync(urls[0])
       console.log(`Detected file type for ${urls[0]}: ${firstFileType}`)
 
-      // Determine thumbnail URL
+      // Determine thumbnail URL - use provided thumbnail or fallback for images
       let finalThumbnailUrl = thumbnailUrl
-      if (!finalThumbnailUrl) {
-        if (firstFileType === 'pdf') {
-          // Auto-generate thumbnail from first page of PDF
-          console.log('Attempting to generate PDF thumbnail...')
-          const generatedThumb = await createPdfThumbnail(urls[0], documentId)
-          if (generatedThumb) {
-            finalThumbnailUrl = generatedThumb
-            console.log('PDF thumbnail generated successfully:', finalThumbnailUrl)
-          } else {
-            // Fall back to null if generation fails - frontend will show fallback icon
-            finalThumbnailUrl = null
-            console.log('PDF thumbnail generation failed, thumbnailUrl will be null')
-          }
-        } else if (firstFileType === 'image') {
-          // Use the first image as thumbnail
-          finalThumbnailUrl = urls[0]
-        } else {
-          // For other file types, set to null - frontend will show fallback icon
-          finalThumbnailUrl = null
-        }
+      if (!finalThumbnailUrl && firstFileType === 'image') {
+        // Use the first image as thumbnail
+        finalThumbnailUrl = urls[0]
       }
+      // If no thumbnail provided and it's a PDF, it will be null and frontend shows fallback icon
 
       const newDocument = {
         id: documentId,
@@ -1130,69 +933,6 @@ app.post('/api/documents/:id/thumbnail', upload.single('thumbnail'), async (req,
   } catch (error) {
     console.error('Thumbnail upload error:', error)
     res.status(500).json({ error: 'Failed to upload thumbnail' })
-  }
-})
-
-// Regenerate PDF thumbnail from first page
-// Use this when PDF is updated or to regenerate existing document thumbnails
-app.post('/api/documents/:id/regenerate-thumbnail', async (req, res) => {
-  try {
-    const data = await readData()
-    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id || doc.slug === req.params.id)
-    
-    if (docIndex === -1) {
-      return res.status(404).json({ error: 'Document not found' })
-    }
-
-    const document = data.documents[docIndex]
-    
-    // Get PDF URL from document - use async version to check Content-Type for R2 URLs
-    let pdfUrl = null
-    if (document.fileUrls && document.fileUrls.length > 0) {
-      // Find first PDF in fileUrls - check each URL with async function
-      for (const url of document.fileUrls) {
-        const fileType = await getFileTypeFromUrlAsync(url)
-        if (fileType === 'pdf') {
-          pdfUrl = url
-          break
-        }
-      }
-    } else if (document.fileUrl) {
-      const fileType = await getFileTypeFromUrlAsync(document.fileUrl)
-      if (fileType === 'pdf') {
-        pdfUrl = document.fileUrl
-      }
-    }
-    
-    if (!pdfUrl) {
-      return res.status(400).json({ error: 'No PDF file found in document' })
-    }
-
-    // Check if R2 is configured
-    if (!r2Client) {
-      return res.status(503).json({ error: 'R2 storage not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, and R2_PUBLIC_URL environment variables.' })
-    }
-
-    // Generate and upload thumbnail
-    console.log(`Regenerating thumbnail for document ${document.id}...`)
-    const thumbnailUrl = await createPdfThumbnail(pdfUrl, document.id)
-    
-    if (!thumbnailUrl) {
-      return res.status(500).json({ error: 'Failed to generate thumbnail from PDF' })
-    }
-
-    // Update document with new thumbnail
-    data.documents[docIndex].thumbnailUrl = thumbnailUrl
-    await writeData(data)
-    
-    console.log(`Thumbnail regenerated successfully: ${thumbnailUrl}`)
-    res.json({ 
-      thumbnailUrl, 
-      message: 'Thumbnail regenerated successfully' 
-    })
-  } catch (error) {
-    console.error('Thumbnail regeneration error:', error)
-    res.status(500).json({ error: 'Failed to regenerate thumbnail' })
   }
 })
 
