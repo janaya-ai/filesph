@@ -30,7 +30,7 @@ To prevent data loss, you **MUST** configure persistent storage. See the [Persis
 5. Render will automatically detect the `render.yaml` and create both services
 6. Click "Apply" to deploy
 
-**Note**: The backend will fail to start initially because FRONTEND_URL is not set. This is expected. Continue with the following steps.
+**Note**: The backend will start successfully even without FRONTEND_URL, but will show warnings and block all CORS requests until it's configured. This is a security feature. Continue with the following steps to complete the setup.
 
 7. **CRITICAL - Configure Persistent Storage** (Do this IMMEDIATELY):
    - Go to the backend service (`filesph-backend`) in the Render dashboard
@@ -69,7 +69,7 @@ To prevent data loss, you **MUST** configure persistent storage. See the [Persis
 5. Add Environment Variable:
    - `NODE_ENV`: `production`
 6. Click "Create Web Service"
-7. **Important**: The backend will fail to start initially because FRONTEND_URL is not set. This is expected - you'll add it in step 12.
+7. **Important**: The backend will start successfully but will show warnings and block all CORS requests until FRONTEND_URL is set. This is expected - you'll add it in step 12.
 8. **Copy the backend URL** (e.g., `https://filesph-backend.onrender.com`)
 
 #### Deploy Frontend
@@ -164,9 +164,9 @@ For other deployment platforms, set the `STORAGE_PATH` environment variable to p
 - **Cause**: Persistent storage is not configured. The default storage location is ephemeral and is lost when the container restarts.
 - **Solution**: Configure persistent storage as described in the "Persistent Storage Configuration" section above.
 
-### Backend Fails to Start on Initial Deployment
-- **Cause**: FRONTEND_URL environment variable is not set
-- **Solution**: This is expected and is a security feature. The backend requires FRONTEND_URL to be set in production. Follow the deployment steps to add the frontend URL to the backend's environment variables after the frontend is deployed.
+### Backend Shows CORS Warnings on Initial Deployment
+- **Cause**: FRONTEND_URL environment variable is not set yet
+- **Solution**: This is expected behavior. The backend will start successfully but show warnings and block all CORS requests until FRONTEND_URL is configured. Follow the deployment steps to add the frontend URL to the backend's environment variables after the frontend is deployed. Once FRONTEND_URL is set, the backend will automatically configure CORS correctly.
 
 ### CORS Errors
 - Ensure `FRONTEND_URL` in backend matches your frontend URL exactly (including https://)
