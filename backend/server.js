@@ -465,7 +465,7 @@ async function generateThumbnail(filePath, fileType) {
       const image = await Jimp.read(filePath)
       await image
         .cover(400, 600) // Resize with cover (similar to sharp's fit: 'cover')
-        .quality(80)
+        .quality(95) // High quality for better mobile display
         .writeAsync(thumbnailPath)
       return thumbnailName
     } else if (fileType === 'pdf') {

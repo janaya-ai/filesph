@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { ViewerState } from '../types'
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+// Configure PDF.js worker - use CDN for simplicity
+// In production, consider bundling the worker with your app
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 // API base URL for proxy
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -98,11 +99,20 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
       }
 
       const scaledViewport = page.getViewport({ scale })
+      
+      // Get device pixel ratio for high-DPI displays (Retina, mobile screens)
+      const devicePixelRatio = window.devicePixelRatio || 1
 
-      canvas.height = scaledViewport.height
-      canvas.width = scaledViewport.width
+      // Set canvas internal size to account for device pixel ratio
+      canvas.height = scaledViewport.height * devicePixelRatio
+      canvas.width = scaledViewport.width * devicePixelRatio
+      
+      // Set canvas display size (CSS pixels)
       canvas.style.width = '100%'
       canvas.style.height = 'auto'
+      
+      // Scale the canvas context to match device pixel ratio
+      context.scale(devicePixelRatio, devicePixelRatio)
 
       const renderContext = {
         canvasContext: context,
