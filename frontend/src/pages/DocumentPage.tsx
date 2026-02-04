@@ -209,7 +209,8 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         {!embedded && (
           <header className="bg-white border-b border-gray-200 sticky top-0 z-10 print:hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
+              {/* Desktop layout */}
+              <div className="hidden sm:flex items-center justify-between h-16">
                 <div className="flex items-center space-x-4">
                   <Link 
                     to="/" 
@@ -285,6 +286,95 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                 </button>
               </div>
             </div>
+
+              {/* Mobile layout - two rows */}
+              <div className="sm:hidden">
+                {/* First row: Back button */}
+                <div className="flex items-center justify-between py-2">
+                  <Link 
+                    to="/" 
+                    className="flex items-center text-gray-700 hover:text-blue-600 transition-colors"
+                  >
+                    <ArrowLeft className="h-5 w-5 mr-1" />
+                    <span className="text-sm font-medium">Back</span>
+                  </Link>
+                  <h1 className="text-sm font-medium text-gray-800 truncate max-w-[200px]">
+                    {document.name}
+                  </h1>
+                </div>
+                
+                {/* Second row: All action buttons */}
+                <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                  {/* Zoom controls */}
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setViewerState(prev => ({ ...prev, zoom: Math.max(0.5, prev.zoom - 0.1) }))}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs text-gray-600 min-w-[40px] text-center">
+                      {Math.round(viewerState.zoom * 100)}%
+                    </span>
+                    <button
+                      onClick={() => setViewerState(prev => ({ ...prev, zoom: Math.min(2, prev.zoom + 0.1) }))}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={handleDownload}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Download"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    {hasMultipleFiles && (
+                      <button
+                        onClick={handleDownloadAll}
+                        className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                        title="Download All"
+                      >
+                        <FileArchive className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={handlePrint}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Print"
+                    >
+                      <Printer className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Share"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setShowEmbedCode(true)}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Embed"
+                    >
+                      <Code className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={toggleFullscreen}
+                      className="p-1.5 text-gray-700 hover:bg-gray-100 rounded"
+                      title="Fullscreen"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
           </div>
         </header>
         )}

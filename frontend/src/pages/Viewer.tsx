@@ -209,21 +209,23 @@ export default function Viewer({ embedded }: ViewerProps) {
           toolbarVisible ? 'translate-y-0' : '-translate-y-full'
         } ${embedded ? 'hidden' : ''}`}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center space-x-4">
+        {/* Main toolbar row */}
+        <div className="flex items-center justify-between px-2 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
             <button
               onClick={() => navigate('/')}
-              className="p-2 hover:bg-gray-700 rounded-lg transition"
+              className="p-2 hover:bg-gray-700 rounded-lg transition flex-shrink-0"
               title="Home"
             >
               <Home className="h-5 w-5" />
             </button>
-            <h1 className="text-lg font-semibold truncate max-w-md">
+            <h1 className="text-sm sm:text-lg font-semibold truncate">
               {document.name}
             </h1>
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* Desktop controls - hidden on mobile */}
+          <div className="hidden md:flex items-center space-x-2">
             {/* Zoom Controls */}
             <button
               onClick={handleZoomOut}
@@ -324,6 +326,87 @@ export default function Viewer({ embedded }: ViewerProps) {
           </div>
         </div>
 
+        {/* Mobile controls row - visible only on mobile */}
+        <div className="flex md:hidden items-center justify-between px-2 py-2 border-t border-gray-700">
+          {/* Zoom Controls */}
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={handleZoomOut}
+              className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+              title="Zoom Out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </button>
+            <span className="text-xs px-1">{Math.round(viewerState.zoom * 100)}%</span>
+            <button
+              onClick={handleZoomIn}
+              className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+              title="Zoom In"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={handleDownload}
+              className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+              title="Download"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            {hasMultipleFiles && (
+              <button
+                onClick={handleDownloadAll}
+                className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+                title="Download All"
+              >
+                <FileArchive className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={handlePrint}
+              className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+              title="Print"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={handleShare}
+                className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+                title="Share"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
+              {shareMenuOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl text-gray-900 py-2 z-50">
+                  <button
+                    onClick={copyShareLink}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 transition text-sm"
+                  >
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={copyEmbedCode}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 transition text-sm"
+                  >
+                    Copy Embed Code
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleFullscreen}
+              className="p-1.5 hover:bg-gray-700 rounded-lg transition"
+              title="Fullscreen"
+            >
+              <Maximize className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
         {/* Page Indicator */}
         <div className="text-center py-1 text-sm text-gray-400 border-t border-gray-700">
           Page {viewerState.currentPage} of {viewerState.totalPages}
@@ -331,7 +414,7 @@ export default function Viewer({ embedded }: ViewerProps) {
       </div>
 
       {/* Document Content */}
-      <div className={`${embedded ? 'pt-0' : 'pt-24'} pb-8`}>
+      <div className={`${embedded ? 'pt-0' : 'pt-28 md:pt-24'} pb-8`}>
         <div className="max-w-6xl mx-auto px-4">
           {/* Multi-file navigation */}
           {hasMultipleFiles && (
