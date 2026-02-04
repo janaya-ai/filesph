@@ -56,6 +56,7 @@ export default function Admin() {
   const [uploadMode, setUploadMode] = useState<'file' | 'r2'>('r2') // Default to R2 mode
   const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploadName, setUploadName] = useState('')
+  const [uploadSlug, setUploadSlug] = useState('')
   const [uploadDescription, setUploadDescription] = useState('')
   const [uploadTags, setUploadTags] = useState('')
   const [uploadReleaseDate, setUploadReleaseDate] = useState('')
@@ -144,7 +145,8 @@ export default function Admin() {
             uploadReleaseDate || undefined,
             uploadDeadline || undefined,
             uploadSourceAgency || undefined,
-            validArticles.length > 0 ? validArticles : undefined
+            validArticles.length > 0 ? validArticles : undefined,
+            uploadSlug || undefined
           )
           
           // Upload custom thumbnail if provided
@@ -155,6 +157,7 @@ export default function Admin() {
           // Reset form
           setUploadFiles([])
           setUploadName('')
+          setUploadSlug('')
           setUploadDescription('')
           setUploadTags('')
           setUploadReleaseDate('')
@@ -747,6 +750,26 @@ export default function Admin() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter document name"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom URL Slug (optional)
+                  </label>
+                  <div className="flex items-center">
+                    <span className="text-gray-500 text-sm mr-1">filesph.com/d/</span>
+                    <input
+                      type="text"
+                      value={uploadSlug}
+                      onChange={(e) => setUploadSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="leave-blank-to-auto-generate"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Leave blank to auto-generate from document name</p>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Description (optional)
                   </label>

@@ -847,7 +847,8 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
       deadline,
       sourceAgency,
       tags: tagsJson = '[]',
-      relatedArticles: relatedArticlesJson = '[]'
+      relatedArticles: relatedArticlesJson = '[]',
+      customSlug = ''
     } = req.body
 
     if (!name) {
@@ -905,7 +906,8 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
     }
 
     // Create document record
-    const baseSlug = generateSlug(name)
+    // Use custom slug if provided, otherwise auto-generate from name
+    let baseSlug = customSlug.trim() ? customSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') : generateSlug(name)
     const slug = await ensureUniqueSlug(baseSlug, data)
     const documentId = uuidv4()
 

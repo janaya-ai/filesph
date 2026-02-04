@@ -102,7 +102,8 @@ export const api = {
     releaseDate?: string, 
     deadline?: string, 
     sourceAgency?: string,
-    relatedArticles?: { title: string; url: string }[]
+    relatedArticles?: { title: string; url: string }[],
+    customSlug?: string
   ): Promise<Document> {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
@@ -117,6 +118,7 @@ export const api = {
     if (relatedArticles && relatedArticles.length > 0) {
       formData.append('relatedArticles', JSON.stringify(relatedArticles))
     }
+    if (customSlug) formData.append('customSlug', customSlug)
 
     const response = await axios.post(`${API_BASE}/documents/upload-r2`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
