@@ -460,13 +460,24 @@ function generateSlug(name) {
   // Remove file extension if present
   const nameWithoutExt = name.replace(/\.[^/.]+$/, '')
   
-  return nameWithoutExt
+  let slug = nameWithoutExt
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
     .trim()
-    .substring(0, 100) // Limit length
+  
+  // Limit length but cut at word boundary (hyphen)
+  if (slug.length > 100) {
+    slug = slug.substring(0, 100)
+    const lastHyphen = slug.lastIndexOf('-')
+    if (lastHyphen > 50) { // Only cut at hyphen if it's not too short
+      slug = slug.substring(0, lastHyphen)
+    }
+  }
+  
+  // Remove trailing hyphen if present
+  return slug.replace(/-$/, '')
 }
 
 async function ensureUniqueSlug(baseSlug, data, excludeId = null) {
