@@ -1,0 +1,5 @@
+# Proxy API requests to the backend service
+/api/*  https://filesph-backend.onrender.com/api/:splat  200
+
+# SPA fallback - all other routes go to index.html
+/*  /index.html  200
