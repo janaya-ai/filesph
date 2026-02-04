@@ -24,6 +24,21 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
 
+  // Disable AdSense on admin pages
+  useEffect(() => {
+    // Add data attribute to disable auto-ads on this page
+    document.body.setAttribute('data-ad-client', '')
+    
+    // Also try to remove any existing ad elements
+    const adElements = document.querySelectorAll('.adsbygoogle')
+    adElements.forEach(el => el.remove())
+    
+    return () => {
+      // Restore when leaving admin
+      document.body.removeAttribute('data-ad-client')
+    }
+  }, [])
+
   // Check authentication on mount
   useEffect(() => {
     const token = localStorage.getItem('adminToken')
