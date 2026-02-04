@@ -854,6 +854,7 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
       releaseDate,
       deadline,
       sourceAgency,
+      agencyId = '',
       tags: tagsJson = '[]',
       relatedArticles: relatedArticlesJson = '[]',
       customSlug = ''
@@ -861,6 +862,15 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
 
     if (!name) {
       return res.status(400).json({ error: 'Document name is required' })
+    }
+
+    // Validate agency if provided (recommended for new uploads)
+    const data = await readData()
+    if (agencyId && data.agencies) {
+      const agencyExists = data.agencies.some(a => a.id === agencyId)
+      if (!agencyExists) {
+        return res.status(400).json({ error: 'Invalid agency selected' })
+      }
     }
 
     // Parse JSON fields
@@ -876,7 +886,7 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
     }
 
     // Get category name for folder structure (use first category or 'documents')
-    const data = await readData()
+    // Note: 'data' was already loaded above for agency validation
     let categoryName = 'documents'
     if (categories.length > 0) {
       const cat = data.categories.find(c => c.id === categories[0])
@@ -935,6 +945,7 @@ app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (r
       totalPages: uploadedUrls.length,
       views: 0,
       downloads: 0,
+      agencyId: agencyId || null,
       sourceAgency: sourceAgency || null,
       fileSize: totalSize,
       relatedArticles: Array.isArray(relatedArticles) ? relatedArticles.filter(a => a.title && a.url) : []
@@ -1470,6 +1481,298 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 })
 
+// ========================================
+// Agency Endpoints
+// ========================================
+
+// Get all agencies
+app.get('/api/agencies', async (req, res) => {
+  try {
+    const data = await readData()
+    // Ensure agencies array exists
+    const agencies = data.agencies || []
+    
+    // Calculate document counts for each agency
+    const agenciesWithCounts = agencies.map(agency => {
+      const docCount = data.documents.filter(doc => doc.agencyId === agency.id).length
+      return { ...agency, documentCount: docCount }
+    })
+    
+    res.json(agenciesWithCounts)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch agencies' })
+  }
+})
+
+// Get agency by slug with documents
+app.get('/api/agencies/:slug', async (req, res) => {
+  try {
+    const data = await readData()
+    const agencies = data.agencies || []
+    const agency = agencies.find(a => a.slug === req.params.slug || a.id === req.params.slug)
+    
+    if (!agency) {
+      return res.status(404).json({ error: 'Agency not found' })
+    }
+    
+    // Get query params for filtering
+    const { category, year, sort = 'newest' } = req.query
+    
+    // Get documents for this agency
+    let documents = data.documents.filter(doc => doc.agencyId === agency.id)
+    
+    // Filter by category if provided
+    if (category) {
+      documents = documents.filter(doc => 
+        doc.categories.some(catId => {
+          const cat = data.categories.find(c => c.id === catId)
+          return cat && (cat.id === category || cat.name.toLowerCase() === category.toLowerCase())
+        })
+      )
+    }
+    
+    // Filter by year if provided
+    if (year) {
+      documents = documents.filter(doc => {
+        const docYear = new Date(doc.createdAt).getFullYear().toString()
+        return docYear === year
+      })
+    }
+    
+    // Sort documents
+    if (sort === 'newest') {
+      documents.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    } else if (sort === 'oldest') {
+      documents.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    } else if (sort === 'downloads') {
+      documents.sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+    } else if (sort === 'views') {
+      documents.sort((a, b) => (b.views || 0) - (a.views || 0))
+    }
+    
+    // Format documents for response
+    const formattedDocs = documents.map(doc => formatDocumentForResponse(doc))
+    
+    // Get available categories for filter
+    const availableCategories = [...new Set(
+      data.documents
+        .filter(doc => doc.agencyId === agency.id)
+        .flatMap(doc => doc.categories)
+    )].map(catId => data.categories.find(c => c.id === catId)).filter(Boolean)
+    
+    // Get available years for filter
+    const availableYears = [...new Set(
+      data.documents
+        .filter(doc => doc.agencyId === agency.id)
+        .map(doc => new Date(doc.createdAt).getFullYear())
+    )].sort((a, b) => b - a)
+    
+    res.json({
+      agency: {
+        ...agency,
+        documentCount: data.documents.filter(doc => doc.agencyId === agency.id).length
+      },
+      documents: formattedDocs,
+      filters: {
+        categories: availableCategories,
+        years: availableYears
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching agency:', error)
+    res.status(500).json({ error: 'Failed to fetch agency' })
+  }
+})
+
+// Create agency (admin only)
+app.post('/api/agencies', async (req, res) => {
+  try {
+    const { name, shortName, description } = req.body
+    
+    if (!name || !shortName) {
+      return res.status(400).json({ error: 'Name and short name are required' })
+    }
+
+    // Generate slug from short name
+    const slug = shortName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+    
+    const data = await readData()
+    if (!data.agencies) data.agencies = []
+    
+    // Check for duplicate slug
+    if (data.agencies.some(a => a.slug === slug)) {
+      return res.status(400).json({ error: 'Agency with this short name already exists' })
+    }
+
+    const newAgency = {
+      id: `agency-${slug}`,
+      name,
+      slug,
+      shortName,
+      description: description || '',
+      documentCount: 0
+    }
+
+    data.agencies.push(newAgency)
+    await writeData(data)
+    res.status(201).json(newAgency)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create agency' })
+  }
+})
+
+// Update agency
+app.patch('/api/agencies/:id', async (req, res) => {
+  try {
+    const data = await readData()
+    if (!data.agencies) data.agencies = []
+    
+    const agencyIndex = data.agencies.findIndex(a => a.id === req.params.id)
+    
+    if (agencyIndex === -1) {
+      return res.status(404).json({ error: 'Agency not found' })
+    }
+
+    const updatedAgency = { ...data.agencies[agencyIndex], ...req.body }
+    data.agencies[agencyIndex] = updatedAgency
+    await writeData(data)
+    res.json(updatedAgency)
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update agency' })
+  }
+})
+
+// Delete agency
+app.delete('/api/agencies/:id', async (req, res) => {
+  try {
+    const data = await readData()
+    if (!data.agencies) data.agencies = []
+    
+    const agencyIndex = data.agencies.findIndex(a => a.id === req.params.id)
+    
+    if (agencyIndex === -1) {
+      return res.status(404).json({ error: 'Agency not found' })
+    }
+
+    // Remove agency from all documents
+    data.documents.forEach(doc => {
+      if (doc.agencyId === req.params.id) {
+        doc.agencyId = null
+      }
+    })
+
+    data.agencies.splice(agencyIndex, 1)
+    await writeData(data)
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete agency' })
+  }
+})
+
+// ========================================
+// Search Endpoint with Agency Filter
+// ========================================
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q, agency, category, year, sort = 'relevance', limit = 50 } = req.query
+    const data = await readData()
+    
+    let results = [...data.documents]
+    
+    // Filter by agency if provided
+    if (agency) {
+      const agencyData = (data.agencies || []).find(a => a.slug === agency || a.id === agency)
+      if (agencyData) {
+        results = results.filter(doc => doc.agencyId === agencyData.id)
+      }
+    }
+    
+    // Filter by category if provided
+    if (category) {
+      results = results.filter(doc => 
+        doc.categories.some(catId => {
+          const cat = data.categories.find(c => c.id === catId)
+          return cat && (cat.id === category || cat.slug === category || cat.name.toLowerCase() === category.toLowerCase())
+        })
+      )
+    }
+    
+    // Filter by year if provided
+    if (year) {
+      results = results.filter(doc => {
+        const docYear = new Date(doc.createdAt).getFullYear().toString()
+        return docYear === year
+      })
+    }
+    
+    // Search by keyword if provided
+    if (q && q.trim()) {
+      const searchTerms = q.toLowerCase().trim().split(/\s+/)
+      results = results.filter(doc => {
+        const searchText = `${doc.name} ${doc.description || ''} ${(doc.tags || []).join(' ')}`.toLowerCase()
+        return searchTerms.every(term => searchText.includes(term))
+      })
+      
+      // Score by relevance for keyword search
+      results = results.map(doc => {
+        let score = 0
+        const nameLower = doc.name.toLowerCase()
+        const searchLower = q.toLowerCase()
+        
+        // Exact match in name
+        if (nameLower.includes(searchLower)) score += 10
+        // Word match in name
+        searchTerms.forEach(term => {
+          if (nameLower.includes(term)) score += 3
+        })
+        // Tag match
+        (doc.tags || []).forEach(tag => {
+          if (tag.toLowerCase().includes(searchLower)) score += 2
+        })
+        // Featured bonus
+        if (doc.featured) score += 1
+        
+        return { ...doc, _score: score }
+      })
+      
+      // Sort by relevance score if using keyword search
+      if (sort === 'relevance') {
+        results.sort((a, b) => b._score - a._score)
+      }
+    }
+    
+    // Apply sorting
+    if (sort === 'newest') {
+      results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    } else if (sort === 'oldest') {
+      results.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    } else if (sort === 'downloads') {
+      results.sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+    } else if (sort === 'views') {
+      results.sort((a, b) => (b.views || 0) - (a.views || 0))
+    }
+    
+    // Limit results
+    results = results.slice(0, parseInt(limit))
+    
+    // Remove internal score and format response
+    const formattedResults = results.map(doc => {
+      const { _score, ...rest } = doc
+      return formatDocumentForResponse(rest)
+    })
+    
+    res.json({
+      query: q || '',
+      filters: { agency, category, year },
+      total: formattedResults.length,
+      results: formattedResults
+    })
+  } catch (error) {
+    console.error('Search error:', error)
+    res.status(500).json({ error: 'Search failed' })
+  }
+})
+
 // SEO: Generate XML sitemap
 app.get('/sitemap.xml', async (req, res) => {
   try {
@@ -1485,6 +1788,16 @@ app.get('/sitemap.xml', async (req, res) => {
     xml += '    <changefreq>daily</changefreq>\n'
     xml += '    <priority>1.0</priority>\n'
     xml += '  </url>\n'
+    
+    // Agency pages
+    const agencies = data.agencies || []
+    agencies.forEach(agency => {
+      xml += '  <url>\n'
+      xml += `    <loc>${baseUrl}/agency/${agency.slug}</loc>\n`
+      xml += '    <changefreq>weekly</changefreq>\n'
+      xml += '    <priority>0.9</priority>\n'
+      xml += '  </url>\n'
+    })
     
     // Document pages
     data.documents.forEach(doc => {

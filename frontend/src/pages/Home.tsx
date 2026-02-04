@@ -19,7 +19,7 @@ import {
   Eye
 } from 'lucide-react'
 import { api } from '../utils/api'
-import type { Document, Category } from '../types'
+import type { Document, Category, Agency } from '../types'
 
 // Category icons mapping
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -42,6 +42,7 @@ function getCategoryIcon(categoryId: string, categoryName: string): React.ReactN
 export default function Home() {
   const navigate = useNavigate()
   const [categories, setCategories] = useState<Category[]>([])
+  const [agencies, setAgencies] = useState<Agency[]>([])
   const [featuredDocs, setFeaturedDocs] = useState<Document[]>([])
   const [popularDocs, setPopularDocs] = useState<Document[]>([])
   const [recentDocs, setRecentDocs] = useState<Document[]>([])
@@ -55,9 +56,10 @@ export default function Home() {
 
   const loadData = async () => {
     try {
-      const [allDocs, cats, popular, recent] = await Promise.all([
+      const [allDocs, cats, agenciesList, popular, recent] = await Promise.all([
         api.getDocuments(),
         api.getCategories(),
+        api.getAgencies().catch(() => []),
         api.getPopularDocuments(5).catch(() => []),
         api.getRecentDocuments(5).catch(() => [])
       ])
@@ -75,6 +77,7 @@ export default function Home() {
         .slice(0, 5)
       
       setCategories(cats)
+      setAgencies(agenciesList)
       setFeaturedDocs(featured)
       setPopularDocs(popularFallback)
       setRecentDocs(recentFallback)
@@ -222,6 +225,60 @@ export default function Home() {
             )}
           </div>
         </section>
+
+        {/* Browse by Agency Section */}
+        {agencies.length > 0 && (
+          <section id="agencies" className="py-12 md:py-16 bg-gray-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center space-x-2">
+                  <Building2 className="h-6 w-6 text-blue-600" />
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Browse by Agency</h2>
+                </div>
+              </div>
+              
+              {/* Mobile: Horizontal scrollable chips */}
+              <div className="flex md:hidden gap-3 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+                {agencies.map(agency => (
+                  <Link
+                    key={agency.id}
+                    to={`/agency/${agency.slug}`}
+                    className="flex-shrink-0 px-4 py-2 bg-white border border-gray-200 rounded-full hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm"
+                  >
+                    <span className="font-medium text-gray-900 whitespace-nowrap">{agency.shortName}</span>
+                    <span className="ml-2 text-sm text-gray-500">{agency.documentCount}</span>
+                  </Link>
+                ))}
+              </div>
+              
+              {/* Desktop: Grid layout */}
+              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {agencies.slice(0, 12).map(agency => (
+                  <Link
+                    key={agency.id}
+                    to={`/agency/${agency.slug}`}
+                    className="group bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-xl p-5 transition-all duration-200 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition truncate">
+                          {agency.shortName}
+                        </h3>
+                        <p className="text-sm text-gray-500 line-clamp-1">{agency.name}</p>
+                      </div>
+                      <span className="ml-3 flex-shrink-0 px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full group-hover:bg-blue-100 group-hover:text-blue-700">
+                        {agency.documentCount}
+                      </span>
+                    </div>
+                    {agency.description && (
+                      <p className="mt-2 text-xs text-gray-400 line-clamp-2">{agency.description}</p>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Featured Documents Section */}
         {featuredDocs.length > 0 && (

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Document, Category, RelatedArticle } from '../types'
+import type { Document, Category, Agency, RelatedArticle } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_URL 
   ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
@@ -17,10 +17,27 @@ export interface CreateDocumentData {
   featured: boolean
   releaseDate?: string
   deadline?: string
+  agencyId?: string
   sourceAgency?: string
   tags?: string[]
   // Related blog articles/guides
   relatedArticles?: RelatedArticle[]
+}
+
+export interface AgencyWithDocuments {
+  agency: Agency
+  documents: Document[]
+  filters: {
+    categories: Category[]
+    years: number[]
+  }
+}
+
+export interface SearchResult {
+  query: string
+  filters: { agency?: string; category?: string; year?: string }
+  total: number
+  results: Document[]
 }
 
 export const api = {
@@ -103,7 +120,8 @@ export const api = {
     deadline?: string, 
     sourceAgency?: string,
     relatedArticles?: { title: string; url: string }[],
-    customSlug?: string
+    customSlug?: string,
+    agencyId?: string
   ): Promise<Document> {
     const formData = new FormData()
     files.forEach(file => formData.append('files', file))
@@ -119,6 +137,7 @@ export const api = {
       formData.append('relatedArticles', JSON.stringify(relatedArticles))
     }
     if (customSlug) formData.append('customSlug', customSlug)
+    if (agencyId) formData.append('agencyId', agencyId)
 
     const response = await axios.post(`${API_BASE}/documents/upload-r2`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
@@ -193,6 +212,56 @@ export const api = {
   // Storage status
   async getStorageStatus(): Promise<{ persistent: boolean; warning: string | null }> {
     const response = await axios.get(`${API_BASE}/storage-status`)
+    return response.data
+  },
+
+  // ========================================
+  // Agencies
+  // ========================================
+  async getAgencies(): Promise<Agency[]> {
+    const response = await axios.get(`${API_BASE}/agencies`)
+    return response.data
+  },
+
+  async getAgency(slug: string, params?: { category?: string; year?: string; sort?: string }): Promise<AgencyWithDocuments> {
+    const queryParams = new URLSearchParams()
+    if (params?.category) queryParams.append('category', params.category)
+    if (params?.year) queryParams.append('year', params.year)
+    if (params?.sort) queryParams.append('sort', params.sort)
+    
+    const queryString = queryParams.toString()
+    const url = `${API_BASE}/agencies/${slug}${queryString ? `?${queryString}` : ''}`
+    const response = await axios.get(url)
+    return response.data
+  },
+
+  async createAgency(name: string, shortName: string, description?: string): Promise<Agency> {
+    const response = await axios.post(`${API_BASE}/agencies`, { name, shortName, description })
+    return response.data
+  },
+
+  async updateAgency(id: string, data: Partial<Agency>): Promise<Agency> {
+    const response = await axios.patch(`${API_BASE}/agencies/${id}`, data)
+    return response.data
+  },
+
+  async deleteAgency(id: string): Promise<void> {
+    await axios.delete(`${API_BASE}/agencies/${id}`)
+  },
+
+  // ========================================
+  // Search
+  // ========================================
+  async search(params: { q?: string; agency?: string; category?: string; year?: string; sort?: string; limit?: number }): Promise<SearchResult> {
+    const queryParams = new URLSearchParams()
+    if (params.q) queryParams.append('q', params.q)
+    if (params.agency) queryParams.append('agency', params.agency)
+    if (params.category) queryParams.append('category', params.category)
+    if (params.year) queryParams.append('year', params.year)
+    if (params.sort) queryParams.append('sort', params.sort)
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    
+    const response = await axios.get(`${API_BASE}/search?${queryParams.toString()}`)
     return response.data
   }
 }

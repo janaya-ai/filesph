@@ -3,6 +3,15 @@ export interface RelatedArticle {
   url: string
 }
 
+export interface Agency {
+  id: string
+  name: string
+  slug: string
+  shortName: string // e.g., "SSS", "DFA", "BIR"
+  description?: string
+  documentCount: number
+}
+
 export interface Document {
   id: string
   name: string
@@ -26,7 +35,9 @@ export interface Document {
   thumbnail?: string
   views?: number
   downloads?: number
-  sourceAgency?: string
+  // Agency reference (required for new uploads)
+  agencyId?: string
+  sourceAgency?: string // Legacy field, will be migrated to agencyId
   // Related blog articles/guides
   relatedArticles?: RelatedArticle[]
 }

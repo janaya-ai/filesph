@@ -11,16 +11,18 @@ import {
   Plus,
   X,
   LogOut,
-  AlertTriangle
+  AlertTriangle,
+  Building2
 } from 'lucide-react'
 import { api } from '../utils/api'
-import type { Document, Category } from '../types'
+import type { Document, Category, Agency } from '../types'
 
 export default function Admin() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'documents' | 'categories'>('documents')
+  const [activeTab, setActiveTab] = useState<'documents' | 'categories' | 'agencies'>('documents')
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [agencies, setAgencies] = useState<Agency[]>([])
   const [loading, setLoading] = useState(true)
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
 
@@ -77,6 +79,7 @@ export default function Admin() {
   const [uploadReleaseDate, setUploadReleaseDate] = useState('')
   const [uploadDeadline, setUploadDeadline] = useState('')
   const [uploadSourceAgency, setUploadSourceAgency] = useState('')
+  const [uploadAgencyId, setUploadAgencyId] = useState('')
   const [uploadThumbnail, setUploadThumbnail] = useState<File | null>(null)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isFeatured, setIsFeatured] = useState(false)
@@ -91,13 +94,16 @@ export default function Admin() {
   const [editDocumentModalOpen, setEditDocumentModalOpen] = useState(false)
   const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [editName, setEditName] = useState('')
+  const [editSlug, setEditSlug] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editTags, setEditTags] = useState('')
   const [editReleaseDate, setEditReleaseDate] = useState('')
   const [editDeadline, setEditDeadline] = useState('')
   const [editSourceAgency, setEditSourceAgency] = useState('')
+  const [editAgencyId, setEditAgencyId] = useState('')
   const [editCategories, setEditCategories] = useState<string[]>([])
   const [editFeatured, setEditFeatured] = useState(false)
+  const [editRelatedArticles, setEditRelatedArticles] = useState<{title: string, url: string}[]>([])
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
 
@@ -107,18 +113,27 @@ export default function Admin() {
   const [categoryName, setCategoryName] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
 
+  // Agency modal state
+  const [agencyModalOpen, setAgencyModalOpen] = useState(false)
+  const [editingAgency, setEditingAgency] = useState<Agency | null>(null)
+  const [agencyName, setAgencyName] = useState('')
+  const [agencyShortName, setAgencyShortName] = useState('')
+  const [agencyDescription, setAgencyDescription] = useState('')
+
   useEffect(() => {
     loadData()
   }, [])
 
   const loadData = async () => {
     try {
-      const [docs, cats] = await Promise.all([
+      const [docs, cats, agenciesList] = await Promise.all([
         api.getDocuments(),
-        api.getCategories()
+        api.getCategories(),
+        api.getAgencies().catch(() => [])
       ])
       setDocuments(docs)
       setCategories(cats)
+      setAgencies(agenciesList)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -144,6 +159,11 @@ export default function Admin() {
           alert('Please provide a document name')
           return
         }
+        
+        if (!uploadAgencyId) {
+          alert('Please select an agency')
+          return
+        }
 
         try {
           setUploading(true)
@@ -161,7 +181,8 @@ export default function Admin() {
             uploadDeadline || undefined,
             uploadSourceAgency || undefined,
             validArticles.length > 0 ? validArticles : undefined,
-            uploadSlug || undefined
+            uploadSlug || undefined,
+            uploadAgencyId
           )
           
           // Upload custom thumbnail if provided
@@ -178,6 +199,7 @@ export default function Admin() {
           setUploadReleaseDate('')
           setUploadDeadline('')
           setUploadSourceAgency('')
+          setUploadAgencyId('')
           setUploadThumbnail(null)
           setSelectedCategories([])
           setIsFeatured(false)
@@ -301,13 +323,16 @@ export default function Admin() {
   const openEditDocument = (doc: Document) => {
     setEditingDocument(doc)
     setEditName(doc.name)
+    setEditSlug(doc.slug || '')
     setEditDescription(doc.description || '')
     setEditTags(doc.tags?.join(', ') || '')
     setEditReleaseDate(doc.releaseDate || '')
     setEditDeadline(doc.deadline || '')
     setEditSourceAgency(doc.sourceAgency || '')
+    setEditAgencyId(doc.agencyId || '')
     setEditCategories(doc.categories)
     setEditFeatured(doc.featured)
+    setEditRelatedArticles(doc.relatedArticles || [])
     setThumbnailFile(null)
     setEditDocumentModalOpen(true)
   }
@@ -343,15 +368,19 @@ export default function Admin() {
 
     try {
       const tags = editTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+      const validArticles = editRelatedArticles.filter(a => a.title.trim() && a.url.trim())
       await api.updateDocument(editingDocument.id, {
         name: editName,
+        slug: editSlug || undefined,
         description: editDescription,
         tags,
         releaseDate: editReleaseDate || undefined,
         deadline: editDeadline || undefined,
         sourceAgency: editSourceAgency || undefined,
+        agencyId: editAgencyId || undefined,
         categories: editCategories,
-        featured: editFeatured
+        featured: editFeatured,
+        relatedArticles: validArticles.length > 0 ? validArticles : undefined
       })
       setEditDocumentModalOpen(false)
       setEditingDocument(null)
@@ -509,6 +538,19 @@ export default function Admin() {
             <div className="flex items-center space-x-2">
               <Folder className="h-4 w-4" />
               <span>Categories</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('agencies')}
+            className={`px-4 py-2 font-semibold transition ${
+              activeTab === 'agencies'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Building2 className="h-4 w-4" />
+              <span>Agencies</span>
             </div>
           </button>
         </div>
@@ -848,6 +890,30 @@ export default function Admin() {
                   </div>
                 </div>
 
+                {/* Agency Selection (Required) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Agency <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={uploadAgencyId}
+                    onChange={(e) => setUploadAgencyId(e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      !uploadAgencyId ? 'border-gray-300' : 'border-green-300 bg-green-50'
+                    }`}
+                  >
+                    <option value="">-- Select Agency --</option>
+                    {agencies.map(agency => (
+                      <option key={agency.id} value={agency.id}>
+                        {agency.shortName} - {agency.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select the government agency that issued this document
+                  </p>
+                </div>
+
                 {/* Source Agency */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1080,7 +1146,183 @@ export default function Admin() {
             </section>
           </div>
         )}
+
+        {/* Agencies Tab */}
+        {activeTab === 'agencies' && (
+          <div className="space-y-8">
+            <section className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                  <Building2 className="h-5 w-5" />
+                  <span>Government Agencies</span>
+                </h2>
+                <button
+                  onClick={() => {
+                    setEditingAgency(null)
+                    setAgencyName('')
+                    setAgencyShortName('')
+                    setAgencyDescription('')
+                    setAgencyModalOpen(true)
+                  }}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>New Agency</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {agencies.map(agency => (
+                  <div
+                    key={agency.id}
+                    className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{agency.shortName}</h3>
+                        <p className="text-sm text-gray-600">{agency.name}</p>
+                        <p className="text-xs text-gray-500 mt-1">{agency.documentCount} documents</p>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => {
+                            setEditingAgency(agency)
+                            setAgencyName(agency.name)
+                            setAgencyShortName(agency.shortName)
+                            setAgencyDescription(agency.description || '')
+                            setAgencyModalOpen(true)
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Delete "${agency.shortName}"? Documents will be unlinked.`)) return
+                            try {
+                              await api.deleteAgency(agency.id)
+                              await loadData()
+                            } catch (error) {
+                              console.error('Delete failed:', error)
+                              alert('Failed to delete agency')
+                            }
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {agency.description && (
+                      <p className="text-sm text-gray-500 line-clamp-2">{agency.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
       </main>
+
+      {/* Agency Modal */}
+      {agencyModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editingAgency ? 'Edit Agency' : 'New Agency'}
+              </h3>
+              <button
+                onClick={() => setAgencyModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Short Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={agencyShortName}
+                  onChange={(e) => setAgencyShortName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., CSC, SSS, DFA"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={agencyName}
+                  onChange={(e) => setAgencyName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Civil Service Commission"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={agencyDescription}
+                  onChange={(e) => setAgencyDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Brief description of the agency"
+                />
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={async () => {
+                    if (!agencyShortName || !agencyName) {
+                      alert('Please provide both short name and full name')
+                      return
+                    }
+                    try {
+                      if (editingAgency) {
+                        await api.updateAgency(editingAgency.id, {
+                          name: agencyName,
+                          shortName: agencyShortName,
+                          description: agencyDescription || undefined
+                        })
+                      } else {
+                        await api.createAgency(agencyName, agencyShortName, agencyDescription || undefined)
+                      }
+                      setAgencyModalOpen(false)
+                      setEditingAgency(null)
+                      setAgencyName('')
+                      setAgencyShortName('')
+                      setAgencyDescription('')
+                      await loadData()
+                    } catch (error) {
+                      console.error('Save failed:', error)
+                      alert('Failed to save agency')
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setAgencyModalOpen(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Category Modal */}
       {categoryModalOpen && (
@@ -1174,6 +1416,22 @@ export default function Admin() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL Slug
+                </label>
+                <div className="flex items-center">
+                  <span className="text-gray-500 text-sm mr-1">filesph.com/d/</span>
+                  <input
+                    type="text"
+                    value={editSlug}
+                    onChange={(e) => setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="document-slug"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Description (optional)
                 </label>
                 <textarea
@@ -1225,7 +1483,25 @@ export default function Admin() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Source Agency (optional)
+                  Agency
+                </label>
+                <select
+                  value={editAgencyId}
+                  onChange={(e) => setEditAgencyId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Agency --</option>
+                  {agencies.map(agency => (
+                    <option key={agency.id} value={agency.id}>
+                      {agency.shortName} - {agency.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Source Agency (optional - legacy text field)
                 </label>
                 <input
                   type="text"
@@ -1272,6 +1548,58 @@ export default function Admin() {
                   <Star className="h-4 w-4 text-yellow-500" />
                   <span className="text-sm font-medium text-gray-700">Mark as Featured</span>
                 </label>
+              </div>
+
+              {/* Related Articles Section */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Related Guides / Articles (optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Link to blog posts or guides related to this document
+                </p>
+                {editRelatedArticles.map((article, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={article.title}
+                      onChange={(e) => {
+                        const updated = [...editRelatedArticles]
+                        updated[index] = { ...updated[index], title: e.target.value }
+                        setEditRelatedArticles(updated)
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="Link title (e.g., How to Fill Out PDS)"
+                    />
+                    <input
+                      type="url"
+                      value={article.url}
+                      onChange={(e) => {
+                        const updated = [...editRelatedArticles]
+                        updated[index] = { ...updated[index], url: e.target.value }
+                        setEditRelatedArticles(updated)
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      placeholder="https://example.com/article"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditRelatedArticles(editRelatedArticles.filter((_, i) => i !== index))
+                      }}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEditRelatedArticles([...editRelatedArticles, { title: '', url: '' }])}
+                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <span>+</span> Add related article
+                </button>
               </div>
 
               {/* Thumbnail Upload Section */}
