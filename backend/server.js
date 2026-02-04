@@ -73,6 +73,10 @@ function getFileExtension(filename, contentType) {
     'application/pdf': '.pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     'application/msword': '.doc',
+    'text/csv': '.csv',
+    'application/csv': '.csv',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
     'image/jpeg': '.jpg',
     'image/png': '.png',
     'image/gif': '.gif',
@@ -803,11 +807,15 @@ const uploadToMemory = multer({
     fileSize: 50 * 1024 * 1024, // 50MB max file size
   },
   fileFilter: (req, file, cb) => {
-    // Allow PDF, DOCX, DOC, and images
+    // Allow PDF, DOCX, DOC, CSV, Excel, and images
     const allowedMimes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/msword',
+      'text/csv',
+      'application/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'image/jpeg',
       'image/png',
       'image/gif',
