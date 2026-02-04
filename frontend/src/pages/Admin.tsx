@@ -121,50 +121,105 @@ export default function Admin() {
 
   const handleUpload = async () => {
     if (uploadMode === 'r2') {
-      // R2 URL mode - multiple URLs
-      const validUrls = r2FileUrls.filter(url => url.trim())
-      if (validUrls.length === 0 || !uploadName) {
-        alert('Please provide at least one file URL and document name')
-        return
-      }
+      // Check if files are selected for direct R2 upload
+      if (uploadFiles.length > 0) {
+        // Direct file upload to R2
+        if (!uploadName) {
+          alert('Please provide a document name')
+          return
+        }
 
-      try {
-        setUploading(true)
-        const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
-        const validArticles = relatedArticles.filter(a => a.title.trim() && a.url.trim())
-        await api.createDocument({
-          name: uploadName,
-          description: uploadDescription,
-          fileUrls: validUrls,
-          thumbnailUrl: r2ThumbnailUrl || undefined,
-          categories: selectedCategories,
-          featured: isFeatured,
-          releaseDate: uploadReleaseDate || undefined,
-          deadline: uploadDeadline || undefined,
-          sourceAgency: uploadSourceAgency || undefined,
-          tags,
-          relatedArticles: validArticles.length > 0 ? validArticles : undefined
-        })
-        
-        // Reset form
-        setR2FileUrls([''])
-        setR2ThumbnailUrl('')
-        setRelatedArticles([])
-        setUploadName('')
-        setUploadDescription('')
-        setUploadTags('')
-        setUploadReleaseDate('')
-        setUploadDeadline('')
-        setUploadSourceAgency('')
-        setSelectedCategories([])
-        setIsFeatured(false)
-        await loadData()
-        alert('Document created successfully!')
-      } catch (error) {
-        console.error('Create failed:', error)
-        alert('Failed to create document')
-      } finally {
-        setUploading(false)
+        try {
+          setUploading(true)
+          const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+          const validArticles = relatedArticles.filter(a => a.title.trim() && a.url.trim())
+          
+          const newDoc = await api.uploadDocumentToR2(
+            uploadFiles,
+            uploadName,
+            selectedCategories,
+            isFeatured,
+            uploadDescription,
+            tags,
+            uploadReleaseDate || undefined,
+            uploadDeadline || undefined,
+            uploadSourceAgency || undefined,
+            validArticles.length > 0 ? validArticles : undefined
+          )
+          
+          // Upload custom thumbnail if provided
+          if (uploadThumbnail) {
+            await api.uploadThumbnailToR2(newDoc.id, uploadThumbnail)
+          }
+          
+          // Reset form
+          setUploadFiles([])
+          setUploadName('')
+          setUploadDescription('')
+          setUploadTags('')
+          setUploadReleaseDate('')
+          setUploadDeadline('')
+          setUploadSourceAgency('')
+          setUploadThumbnail(null)
+          setSelectedCategories([])
+          setIsFeatured(false)
+          setRelatedArticles([])
+          setR2FileUrls([''])
+          setR2ThumbnailUrl('')
+          await loadData()
+          alert('Document uploaded to R2 successfully!')
+        } catch (error: any) {
+          console.error('Upload failed:', error)
+          alert(error.response?.data?.error || 'Failed to upload document')
+        } finally {
+          setUploading(false)
+        }
+      } else {
+        // R2 URL mode (manual URL entry - fallback)
+        const validUrls = r2FileUrls.filter(url => url.trim())
+        if (validUrls.length === 0 || !uploadName) {
+          alert('Please select files to upload OR provide at least one file URL')
+          return
+        }
+
+        try {
+          setUploading(true)
+          const tags = uploadTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+          const validArticles = relatedArticles.filter(a => a.title.trim() && a.url.trim())
+          await api.createDocument({
+            name: uploadName,
+            description: uploadDescription,
+            fileUrls: validUrls,
+            thumbnailUrl: r2ThumbnailUrl || undefined,
+            categories: selectedCategories,
+            featured: isFeatured,
+            releaseDate: uploadReleaseDate || undefined,
+            deadline: uploadDeadline || undefined,
+            sourceAgency: uploadSourceAgency || undefined,
+            tags,
+            relatedArticles: validArticles.length > 0 ? validArticles : undefined
+          })
+          
+          // Reset form
+          setR2FileUrls([''])
+          setR2ThumbnailUrl('')
+          setRelatedArticles([])
+          setUploadName('')
+          setUploadDescription('')
+          setUploadTags('')
+          setUploadReleaseDate('')
+          setUploadDeadline('')
+          setUploadSourceAgency('')
+          setSelectedCategories([])
+          setIsFeatured(false)
+          await loadData()
+          alert('Document created successfully!')
+        } catch (error) {
+          console.error('Create failed:', error)
+          alert('Failed to create document')
+        } finally {
+          setUploading(false)
+        }
       }
     } else {
       // Legacy file upload mode
@@ -462,7 +517,7 @@ export default function Admin() {
                         : 'bg-white text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    R2 URL (External)
+                    Upload to R2
                   </button>
                   <button
                     type="button"
@@ -473,27 +528,64 @@ export default function Admin() {
                         : 'bg-white text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    File Upload (Local)
+                    Local Storage (Legacy)
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
                   {uploadMode === 'r2' 
-                    ? 'Paste a public URL from Cloudflare R2 or any file hosting service'
-                    : 'Upload files directly to the server (legacy mode)'}
+                    ? 'Upload files directly to Cloudflare R2 storage - recommended'
+                    : 'Upload files to local server storage (legacy mode)'}
                 </p>
               </div>
               
               <div className="space-y-4">
-                {/* R2 URL Input (when in R2 mode) */}
+                {/* R2 Upload Section */}
                 {uploadMode === 'r2' && (
                   <>
+                    {/* Direct File Upload */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        File URLs <span className="text-red-500">*</span>
+                        Select Files <span className="text-red-500">*</span>
                       </label>
                       <p className="mb-2 text-xs text-gray-500">
-                        Add one or more file URLs. Supports: PDF, JPG, PNG, GIF, TXT, CSV
+                        Files will be uploaded directly to R2 storage. Supports: PDF, DOCX, JPG, PNG, GIF, WebP
                       </p>
+                      <input
+                        type="file"
+                        multiple
+                        accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp"
+                        onChange={handleFileSelect}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {uploadFiles.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-green-600 font-medium">
+                            {uploadFiles.length} file(s) selected:
+                          </p>
+                          <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
+                            {uploadFiles.map((f, i) => (
+                              <li key={i}>{f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* OR divider */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-300" />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="bg-white px-2 text-gray-500">OR paste URLs manually</span>
+                      </div>
+                    </div>
+
+                    {/* Manual URL Input (fallback) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        File URLs (if already uploaded to R2)
+                      </label>
                       <div className="space-y-2">
                         {r2FileUrls.map((url, index) => (
                           <div key={index} className="flex gap-2">
@@ -507,6 +599,7 @@ export default function Admin() {
                               }}
                               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               placeholder={`https://pub-xxxx.r2.dev/file${index + 1}.pdf`}
+                              disabled={uploadFiles.length > 0}
                             />
                             {r2FileUrls.length > 1 && (
                               <button
@@ -517,6 +610,7 @@ export default function Admin() {
                                 }}
                                 className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                                 title="Remove URL"
+                                disabled={uploadFiles.length > 0}
                               >
                                 ✕
                               </button>
@@ -524,23 +618,37 @@ export default function Admin() {
                           </div>
                         ))}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setR2FileUrls([...r2FileUrls, ''])}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      >
-                        <span>+</span> Add another file URL
-                      </button>
-                      {r2FileUrls.filter(u => u.trim()).length > 0 && (
-                        <p className="mt-2 text-sm text-green-600">
-                          {r2FileUrls.filter(u => u.trim()).length} file(s) added
+                      {uploadFiles.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setR2FileUrls([...r2FileUrls, ''])}
+                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        >
+                          <span>+</span> Add another file URL
+                        </button>
+                      )}
+                      {uploadFiles.length > 0 && (
+                        <p className="mt-2 text-xs text-gray-400">
+                          URL input disabled when files are selected
                         </p>
                       )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Thumbnail URL (optional)
+                        Thumbnail (optional)
                       </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setUploadThumbnail(e.target.files?.[0] || null)}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
+                      />
+                      {uploadThumbnail && (
+                        <p className="mt-1 text-xs text-green-600">Thumbnail: {uploadThumbnail.name}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-400">
+                        Or paste URL below (if already uploaded):
+                      </p>
                       <input
                         type="url"
                         value={r2ThumbnailUrl}
@@ -798,10 +906,10 @@ export default function Admin() {
 
                 <button
                   onClick={handleUpload}
-                  disabled={uploading || (uploadMode === 'file' ? uploadFiles.length === 0 : r2FileUrls.filter(u => u.trim()).length === 0) || !uploadName}
+                  disabled={uploading || (uploadMode === 'file' ? uploadFiles.length === 0 : (uploadFiles.length === 0 && r2FileUrls.filter(u => u.trim()).length === 0)) || !uploadName}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {uploading ? 'Processing...' : (uploadMode === 'r2' ? 'Create Document' : 'Upload Document')}
+                  {uploading ? 'Uploading to R2...' : (uploadMode === 'r2' ? (uploadFiles.length > 0 ? 'Upload to R2' : 'Create Document') : 'Upload Document')}
                 </button>
               </div>
             </section>

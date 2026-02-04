@@ -91,6 +91,55 @@ export const api = {
     return response.data
   },
 
+  // Upload files directly to R2 storage
+  async uploadDocumentToR2(
+    files: File[], 
+    name: string, 
+    categories: string[], 
+    featured: boolean, 
+    description?: string, 
+    tags?: string[], 
+    releaseDate?: string, 
+    deadline?: string, 
+    sourceAgency?: string,
+    relatedArticles?: { title: string; url: string }[]
+  ): Promise<Document> {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+    formData.append('name', name)
+    formData.append('categories', JSON.stringify(categories))
+    formData.append('featured', String(featured))
+    if (description) formData.append('description', description)
+    if (tags && tags.length > 0) formData.append('tags', JSON.stringify(tags))
+    if (releaseDate) formData.append('releaseDate', releaseDate)
+    if (deadline) formData.append('deadline', deadline)
+    if (sourceAgency) formData.append('sourceAgency', sourceAgency)
+    if (relatedArticles && relatedArticles.length > 0) {
+      formData.append('relatedArticles', JSON.stringify(relatedArticles))
+    }
+
+    const response = await axios.post(`${API_BASE}/documents/upload-r2`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  // Upload thumbnail to R2
+  async uploadThumbnailToR2(documentId: string, file: File): Promise<{ thumbnailUrl: string }> {
+    const formData = new FormData()
+    formData.append('thumbnail', file)
+    const response = await axios.post(`${API_BASE}/documents/${documentId}/thumbnail-r2`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  // Check R2 configuration status
+  async getR2Status(): Promise<{ configured: boolean; bucketName: string | null; publicUrl: string | null }> {
+    const response = await axios.get(`${API_BASE}/r2-status`)
+    return response.data
+  },
+
   async updateDocument(id: string, data: Partial<Document>): Promise<Document> {
     const response = await axios.patch(`${API_BASE}/documents/${id}`, data)
     return response.data

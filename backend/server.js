@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
 import archiver from 'archiver'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -24,6 +25,105 @@ const storagePath = process.env.STORAGE_PATH || __dirname
 // Admin credentials (in production, use environment variables and proper hashing)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+
+// ========================================
+// Cloudflare R2 Configuration
+// ========================================
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL
+
+// Initialize R2 client (S3-compatible)
+let r2Client = null
+if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) {
+  r2Client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+    },
+  })
+  console.log('R2 client initialized for file uploads')
+} else {
+  console.log('R2 credentials not configured - direct upload disabled')
+}
+
+/**
+ * Sanitize filename for safe storage
+ */
+function sanitizeFilename(filename) {
+  const basename = path.basename(filename)
+  return basename
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .toLowerCase()
+}
+
+/**
+ * Get file extension from filename or content type
+ */
+function getFileExtension(filename, contentType) {
+  const ext = path.extname(filename).toLowerCase()
+  if (ext) return ext
+  
+  const mimeToExt = {
+    'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/msword': '.doc',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp'
+  }
+  return mimeToExt[contentType] || ''
+}
+
+/**
+ * Upload file to R2
+ * @param {Buffer} fileBuffer - File data
+ * @param {string} filename - Original filename
+ * @param {string} contentType - MIME type
+ * @param {string} category - Category for folder structure
+ * @returns {Promise<{url: string, key: string, size: number}>}
+ */
+async function uploadToR2(fileBuffer, filename, contentType, category = 'documents') {
+  if (!r2Client || !R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error('R2 storage not configured')
+  }
+  
+  // Generate folder path: /{category}/{yyyy}/{mm}/{filename}
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  
+  // Sanitize filename
+  const ext = getFileExtension(filename, contentType)
+  const baseName = sanitizeFilename(path.basename(filename, ext))
+  const uniqueSuffix = uuidv4().slice(0, 8)
+  const finalFilename = `${baseName}_${uniqueSuffix}${ext}`
+  
+  // Build the key path
+  const categorySlug = category.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+  const key = `${categorySlug}/${year}/${month}/${finalFilename}`
+  
+  await r2Client.send(new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: key,
+    Body: fileBuffer,
+    ContentType: contentType,
+  }))
+  
+  const publicUrl = `${R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`
+  
+  return {
+    url: publicUrl,
+    key: key,
+    size: fileBuffer.length
+  }
+}
 
 // CORS configuration
 // FALLBACK_ORIGIN uses HTTP for local development (localhost doesn't use HTTPS)
@@ -681,6 +781,210 @@ async function getFileTypeFromUrlAsync(url) {
     return 'other'
   }
 }
+
+// ========================================
+// Direct File Upload to R2
+// ========================================
+// Configure multer for memory storage (files go to R2, not disk)
+const uploadToMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB max file size
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow PDF, DOCX, DOC, and images
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ]
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error(`File type not allowed: ${file.mimetype}`))
+    }
+  }
+})
+
+// Upload files directly to R2 and create document
+// POST /api/documents/upload-r2
+// multipart/form-data with fields: files[], name, description, categories, etc.
+app.post('/api/documents/upload-r2', uploadToMemory.array('files', 10), async (req, res) => {
+  try {
+    // Check if R2 is configured
+    if (!r2Client) {
+      return res.status(503).json({ 
+        error: 'R2 storage not configured. Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, and R2_PUBLIC_URL environment variables.' 
+      })
+    }
+
+    const files = req.files
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' })
+    }
+
+    const { 
+      name,
+      description = '',
+      categories: categoriesJson = '[]',
+      featured = 'false',
+      releaseDate,
+      deadline,
+      sourceAgency,
+      tags: tagsJson = '[]',
+      relatedArticles: relatedArticlesJson = '[]'
+    } = req.body
+
+    if (!name) {
+      return res.status(400).json({ error: 'Document name is required' })
+    }
+
+    // Parse JSON fields
+    let categories = []
+    let tags = []
+    let relatedArticles = []
+    try {
+      categories = JSON.parse(categoriesJson)
+      tags = JSON.parse(tagsJson)
+      relatedArticles = JSON.parse(relatedArticlesJson)
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid JSON in categories, tags, or relatedArticles' })
+    }
+
+    // Get category name for folder structure (use first category or 'documents')
+    const data = await readData()
+    let categoryName = 'documents'
+    if (categories.length > 0) {
+      const cat = data.categories.find(c => c.id === categories[0])
+      if (cat) {
+        categoryName = cat.name
+      }
+    }
+
+    // Upload each file to R2
+    console.log(`Uploading ${files.length} file(s) to R2...`)
+    const uploadedUrls = []
+    let thumbnailUrl = null
+    let totalSize = 0
+
+    for (const file of files) {
+      try {
+        const result = await uploadToR2(
+          file.buffer,
+          file.originalname,
+          file.mimetype,
+          categoryName
+        )
+        uploadedUrls.push(result.url)
+        totalSize += result.size
+        console.log(`Uploaded: ${file.originalname} -> ${result.url}`)
+
+        // Use first image as thumbnail
+        if (!thumbnailUrl && file.mimetype.startsWith('image/')) {
+          thumbnailUrl = result.url
+        }
+      } catch (uploadError) {
+        console.error(`Failed to upload ${file.originalname}:`, uploadError)
+        return res.status(500).json({ error: `Failed to upload ${file.originalname}: ${uploadError.message}` })
+      }
+    }
+
+    // Create document record
+    const baseSlug = generateSlug(name)
+    const slug = await ensureUniqueSlug(baseSlug, data)
+    const documentId = uuidv4()
+
+    const newDocument = {
+      id: documentId,
+      name,
+      slug,
+      description: description || '',
+      tags: Array.isArray(tags) ? tags : [],
+      fileUrls: uploadedUrls,
+      thumbnailUrl: thumbnailUrl,
+      categories: Array.isArray(categories) ? categories : [],
+      featured: featured === 'true' || featured === true,
+      createdAt: new Date().toISOString(),
+      releaseDate: releaseDate || null,
+      deadline: deadline || null,
+      totalPages: uploadedUrls.length,
+      views: 0,
+      downloads: 0,
+      sourceAgency: sourceAgency || null,
+      fileSize: totalSize,
+      relatedArticles: Array.isArray(relatedArticles) ? relatedArticles.filter(a => a.title && a.url) : []
+    }
+
+    data.documents.push(newDocument)
+
+    // Update category document counts
+    newDocument.categories.forEach(catId => {
+      const category = data.categories.find(c => c.id === catId)
+      if (category) {
+        category.documentCount++
+      }
+    })
+
+    await writeData(data)
+    
+    console.log(`Document created: ${name} with ${uploadedUrls.length} file(s)`)
+    res.status(201).json(newDocument)
+  } catch (error) {
+    console.error('R2 upload error:', error)
+    res.status(500).json({ error: 'Failed to upload document' })
+  }
+})
+
+// Upload thumbnail to R2
+app.post('/api/documents/:id/thumbnail-r2', uploadToMemory.single('thumbnail'), async (req, res) => {
+  try {
+    if (!r2Client) {
+      return res.status(503).json({ error: 'R2 storage not configured' })
+    }
+
+    const file = req.file
+    if (!file) {
+      return res.status(400).json({ error: 'No thumbnail file uploaded' })
+    }
+
+    const data = await readData()
+    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id)
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    // Upload to R2 in thumbnails folder
+    const result = await uploadToR2(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      'thumbnails'
+    )
+
+    // Update document
+    data.documents[docIndex].thumbnailUrl = result.url
+    await writeData(data)
+
+    console.log(`Thumbnail uploaded for document ${req.params.id}: ${result.url}`)
+    res.json({ thumbnailUrl: result.url })
+  } catch (error) {
+    console.error('Thumbnail upload error:', error)
+    res.status(500).json({ error: 'Failed to upload thumbnail' })
+  }
+})
+
+// Check R2 configuration status
+app.get('/api/r2-status', (req, res) => {
+  res.json({
+    configured: !!r2Client,
+    bucketName: R2_BUCKET_NAME ? '***configured***' : null,
+    publicUrl: R2_PUBLIC_URL ? R2_PUBLIC_URL : null
+  })
+})
 
 // Create new document with R2 URL (JSON body)
 app.post('/api/documents', async (req, res) => {
