@@ -27,7 +27,10 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   })
 
   useEffect(() => {
-    const fetchDocument = async () => {
+    const fetchDocument = async (retryCount = 0) => {
+      const MAX_RETRIES = 3
+      const RETRY_DELAY = 500 // ms
+      
       try {
         setLoading(true)
         if (!slug) {
@@ -39,8 +42,19 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         setDocument(doc)
         setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
         setCurrentFileIndex(0) // Reset to first file
-      } catch (error) {
-        console.error('Error fetching document:', error)
+      } catch (error: any) {
+        console.error(`Error fetching document (attempt ${retryCount + 1}):`, error)
+        
+        // Retry on 404 or network errors - sometimes server needs a moment
+        const is404 = error?.response?.status === 404
+        const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED'
+        
+        if ((is404 || isNetworkError) && retryCount < MAX_RETRIES) {
+          console.log(`Retrying document fetch in ${RETRY_DELAY}ms...`)
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
+          return fetchDocument(retryCount + 1)
+        }
+        
         setDocument(null)
       } finally {
         setLoading(false)

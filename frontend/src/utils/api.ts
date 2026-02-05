@@ -170,6 +170,31 @@ export const api = {
     await axios.delete(`${API_BASE}/documents/${id}`)
   },
 
+  // File management
+  async replaceDocumentFile(documentId: string, fileIndex: number, file: File): Promise<{ success: boolean; fileUrl: string; fileUrls: string[]; message: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('fileIndex', fileIndex.toString())
+    const response = await axios.post(`${API_BASE}/documents/${documentId}/replace-file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  async deleteDocumentFile(documentId: string, fileIndex: number): Promise<{ success: boolean; fileUrls: string[]; message: string }> {
+    const response = await axios.delete(`${API_BASE}/documents/${documentId}/file/${fileIndex}`)
+    return response.data
+  },
+
+  async addDocumentFile(documentId: string, file: File): Promise<{ success: boolean; fileUrl: string; fileUrls: string[]; message: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await axios.post(`${API_BASE}/documents/${documentId}/add-file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
   // Categories
   async getCategories(): Promise<Category[]> {
     const response = await axios.get(`${API_BASE}/categories`)

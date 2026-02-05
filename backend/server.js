@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
 import archiver from 'archiver'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -126,6 +126,55 @@ async function uploadToR2(fileBuffer, filename, contentType, category = 'documen
     url: publicUrl,
     key: key,
     size: fileBuffer.length
+  }
+}
+
+/**
+ * Extract the R2 key from a public URL
+ * @param {string} url - The public URL of the file
+ * @returns {string|null} - The R2 key or null if not a valid R2 URL
+ */
+function getR2KeyFromUrl(url) {
+  if (!R2_PUBLIC_URL || !url) return null
+  
+  const publicUrlBase = R2_PUBLIC_URL.replace(/\/$/, '')
+  if (!url.startsWith(publicUrlBase)) {
+    return null
+  }
+  
+  // Extract the key (everything after the base URL)
+  const key = url.substring(publicUrlBase.length + 1) // +1 for the /
+  return key || null
+}
+
+/**
+ * Delete a file from R2
+ * @param {string} url - The public URL of the file to delete
+ * @returns {Promise<boolean>} - True if deleted successfully or file didn't exist
+ */
+async function deleteFromR2(url) {
+  if (!r2Client || !R2_BUCKET_NAME) {
+    console.log('R2 not configured, skipping file deletion')
+    return false
+  }
+  
+  const key = getR2KeyFromUrl(url)
+  if (!key) {
+    console.log(`URL is not an R2 URL or could not extract key: ${url}`)
+    return false
+  }
+  
+  try {
+    await r2Client.send(new DeleteObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+    }))
+    console.log(`Deleted from R2: ${key}`)
+    return true
+  } catch (error) {
+    // DeleteObject doesn't throw if the object doesn't exist, but log any other errors
+    console.error(`Failed to delete from R2: ${key}`, error)
+    return false
   }
 }
 
@@ -1009,6 +1058,229 @@ app.post('/api/documents/:id/thumbnail-r2', uploadToMemory.single('thumbnail'), 
   }
 })
 
+// Replace a specific file in a document
+// POST /api/documents/:id/replace-file
+// Body: { fileIndex: number } + multipart file upload
+app.post('/api/documents/:id/replace-file', uploadToMemory.single('file'), async (req, res) => {
+  try {
+    if (!r2Client) {
+      return res.status(503).json({ error: 'R2 storage not configured' })
+    }
+
+    const file = req.file
+    const fileIndex = parseInt(req.body.fileIndex)
+    
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' })
+    }
+    
+    if (isNaN(fileIndex) || fileIndex < 0) {
+      return res.status(400).json({ error: 'Invalid file index' })
+    }
+
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File too large. Maximum size is 50MB' })
+    }
+
+    const data = await readData()
+    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id)
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    const document = data.documents[docIndex]
+    
+    // Get current file URLs
+    let fileUrls = document.fileUrls || []
+    if (fileUrls.length === 0 && document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    }
+    
+    if (fileIndex >= fileUrls.length) {
+      return res.status(400).json({ error: 'File index out of range' })
+    }
+
+    const oldFileUrl = fileUrls[fileIndex]
+    
+    // Get category name for folder structure
+    let categoryName = 'documents'
+    if (document.categories && document.categories.length > 0) {
+      const cat = data.categories.find(c => c.id === document.categories[0])
+      if (cat) {
+        categoryName = cat.name
+      }
+    }
+
+    // Upload new file to R2
+    const result = await uploadToR2(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      categoryName
+    )
+
+    // Delete old file from R2 (if it's an R2 URL)
+    if (oldFileUrl) {
+      await deleteFromR2(oldFileUrl)
+    }
+
+    // Update document with new file URL
+    fileUrls[fileIndex] = result.url
+    data.documents[docIndex].fileUrls = fileUrls
+    
+    // Update file size if this is the only file or add to total
+    if (fileUrls.length === 1) {
+      data.documents[docIndex].fileSize = result.size
+    }
+    
+    await writeData(data)
+
+    console.log(`File replaced for document ${req.params.id}: ${oldFileUrl} -> ${result.url}`)
+    res.json({ 
+      success: true,
+      fileUrl: result.url,
+      fileUrls: fileUrls,
+      message: 'File replaced successfully'
+    })
+  } catch (error) {
+    console.error('File replace error:', error)
+    res.status(500).json({ error: 'Failed to replace file' })
+  }
+})
+
+// Delete a specific file from a document (without replacement)
+// DELETE /api/documents/:id/file/:fileIndex
+app.delete('/api/documents/:id/file/:fileIndex', async (req, res) => {
+  try {
+    const fileIndex = parseInt(req.params.fileIndex)
+    
+    if (isNaN(fileIndex) || fileIndex < 0) {
+      return res.status(400).json({ error: 'Invalid file index' })
+    }
+
+    const data = await readData()
+    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id)
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    const document = data.documents[docIndex]
+    
+    // Get current file URLs
+    let fileUrls = document.fileUrls || []
+    if (fileUrls.length === 0 && document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    }
+    
+    if (fileIndex >= fileUrls.length) {
+      return res.status(400).json({ error: 'File index out of range' })
+    }
+    
+    // Don't allow deleting the last file
+    if (fileUrls.length <= 1) {
+      return res.status(400).json({ error: 'Cannot delete the last file. Use replace file or delete the document instead.' })
+    }
+
+    const oldFileUrl = fileUrls[fileIndex]
+    
+    // Delete file from R2
+    if (oldFileUrl) {
+      await deleteFromR2(oldFileUrl)
+    }
+
+    // Remove file from array
+    fileUrls.splice(fileIndex, 1)
+    data.documents[docIndex].fileUrls = fileUrls
+    data.documents[docIndex].totalPages = fileUrls.length
+    
+    await writeData(data)
+
+    console.log(`File deleted from document ${req.params.id}: ${oldFileUrl}`)
+    res.json({ 
+      success: true,
+      fileUrls: fileUrls,
+      message: 'File deleted successfully'
+    })
+  } catch (error) {
+    console.error('File delete error:', error)
+    res.status(500).json({ error: 'Failed to delete file' })
+  }
+})
+
+// Add a new file to an existing document
+// POST /api/documents/:id/add-file
+app.post('/api/documents/:id/add-file', uploadToMemory.single('file'), async (req, res) => {
+  try {
+    if (!r2Client) {
+      return res.status(503).json({ error: 'R2 storage not configured' })
+    }
+
+    const file = req.file
+    
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' })
+    }
+
+    // Validate file size (50MB max)
+    if (file.size > 50 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File too large. Maximum size is 50MB' })
+    }
+
+    const data = await readData()
+    const docIndex = data.documents.findIndex(doc => doc.id === req.params.id)
+    if (docIndex === -1) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    const document = data.documents[docIndex]
+    
+    // Get current file URLs
+    let fileUrls = document.fileUrls || []
+    if (fileUrls.length === 0 && document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    }
+
+    // Get category name for folder structure
+    let categoryName = 'documents'
+    if (document.categories && document.categories.length > 0) {
+      const cat = data.categories.find(c => c.id === document.categories[0])
+      if (cat) {
+        categoryName = cat.name
+      }
+    }
+
+    // Upload new file to R2
+    const result = await uploadToR2(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      categoryName
+    )
+
+    // Add new file URL
+    fileUrls.push(result.url)
+    data.documents[docIndex].fileUrls = fileUrls
+    data.documents[docIndex].totalPages = fileUrls.length
+    
+    // Update total file size
+    data.documents[docIndex].fileSize = (data.documents[docIndex].fileSize || 0) + result.size
+    
+    await writeData(data)
+
+    console.log(`File added to document ${req.params.id}: ${result.url}`)
+    res.json({ 
+      success: true,
+      fileUrl: result.url,
+      fileUrls: fileUrls,
+      message: 'File added successfully'
+    })
+  } catch (error) {
+    console.error('File add error:', error)
+    res.status(500).json({ error: 'Failed to add file' })
+  }
+})
+
 // Check R2 configuration status
 app.get('/api/r2-status', (req, res) => {
   res.json({
@@ -1379,14 +1651,52 @@ app.delete('/api/documents/:id', async (req, res) => {
 
     const document = data.documents[docIndex]
 
-    // Delete physical files (only for legacy file uploads)
+    // Delete R2 files
+    if (document.fileUrls && Array.isArray(document.fileUrls)) {
+      for (const fileUrl of document.fileUrls) {
+        try {
+          await deleteFromR2(fileUrl)
+        } catch (err) {
+          console.error('Failed to delete R2 file:', fileUrl, err)
+        }
+      }
+    }
+    
+    // Delete single R2 file URL (legacy format)
+    if (document.fileUrl) {
+      try {
+        await deleteFromR2(document.fileUrl)
+      } catch (err) {
+        console.error('Failed to delete R2 file:', document.fileUrl, err)
+      }
+    }
+    
+    // Delete R2 thumbnail
+    if (document.thumbnailUrl) {
+      try {
+        await deleteFromR2(document.thumbnailUrl)
+      } catch (err) {
+        console.error('Failed to delete R2 thumbnail:', document.thumbnailUrl, err)
+      }
+    }
+
+    // Delete physical files (only for legacy local file uploads)
     if (document.files && Array.isArray(document.files)) {
       for (const file of document.files) {
         try {
           await fs.unlink(file.path)
         } catch (err) {
-          console.error('Failed to delete file:', file.path, err)
+          console.error('Failed to delete local file:', file.path, err)
         }
+      }
+    }
+    
+    // Delete local thumbnail (legacy)
+    if (document.thumbnail && !document.thumbnail.startsWith('http')) {
+      try {
+        await fs.unlink(path.join(uploadsDir, document.thumbnail))
+      } catch (err) {
+        console.error('Failed to delete local thumbnail:', document.thumbnail, err)
       }
     }
 
@@ -1398,8 +1708,11 @@ app.delete('/api/documents/:id', async (req, res) => {
 
     data.documents.splice(docIndex, 1)
     await writeData(data)
+    
+    console.log(`Document deleted: ${document.name} (${document.id})`)
     res.json({ success: true })
   } catch (error) {
+    console.error('Delete document error:', error)
     res.status(500).json({ error: 'Failed to delete document' })
   }
 })

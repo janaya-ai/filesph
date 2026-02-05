@@ -106,6 +106,12 @@ export default function Admin() {
   const [editRelatedArticles, setEditRelatedArticles] = useState<{title: string, url: string}[]>([])
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
+  // File management state
+  const [replacingFileIndex, setReplacingFileIndex] = useState<number | null>(null)
+  const [replaceFile, setReplaceFile] = useState<File | null>(null)
+  const [addingFile, setAddingFile] = useState(false)
+  const [newFile, setNewFile] = useState<File | null>(null)
+  const [fileOperationLoading, setFileOperationLoading] = useState(false)
 
   // Category modal state
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
@@ -357,6 +363,147 @@ export default function Admin() {
       alert('Failed to upload thumbnail')
     } finally {
       setUploadingThumbnail(false)
+    }
+  }
+
+  // File management functions
+  const getDocumentFileUrls = (doc: Document | null): string[] => {
+    if (!doc) return []
+    if (doc.fileUrls && doc.fileUrls.length > 0) return doc.fileUrls
+    if (doc.fileUrl) return [doc.fileUrl]
+    return []
+  }
+
+  const getFilenameFromUrl = (url: string): string => {
+    try {
+      const pathname = new URL(url).pathname
+      const filename = pathname.split('/').pop() || 'unknown'
+      return decodeURIComponent(filename)
+    } catch {
+      return url.split('/').pop() || 'unknown'
+    }
+  }
+
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    const maxSize = 50 * 1024 * 1024 // 50MB
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'text/csv',
+      'application/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp'
+    ]
+    
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File is too large. Maximum size is 50MB.' }
+    }
+    
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: `File type "${file.type}" is not allowed. Allowed: PDF, DOCX, DOC, CSV, Excel, JPG, PNG, GIF, WebP.` }
+    }
+    
+    return { valid: true }
+  }
+
+  const handleReplaceFile = async (fileIndex: number) => {
+    if (!editingDocument || !replaceFile) return
+    
+    const validation = validateFile(replaceFile)
+    if (!validation.valid) {
+      alert(validation.error)
+      return
+    }
+
+    try {
+      setFileOperationLoading(true)
+      await api.replaceDocumentFile(editingDocument.id, fileIndex, replaceFile)
+      
+      // Refresh document data
+      const updatedDocs = await api.getDocuments()
+      const updatedDoc = updatedDocs.find(d => d.id === editingDocument.id)
+      if (updatedDoc) {
+        setEditingDocument(updatedDoc)
+      }
+      
+      setReplaceFile(null)
+      setReplacingFileIndex(null)
+      await loadData()
+      alert('File replaced successfully!')
+    } catch (error: any) {
+      console.error('File replace failed:', error)
+      alert(error.response?.data?.error || 'Failed to replace file')
+    } finally {
+      setFileOperationLoading(false)
+    }
+  }
+
+  const handleDeleteFile = async (fileIndex: number) => {
+    if (!editingDocument) return
+    
+    const fileUrls = getDocumentFileUrls(editingDocument)
+    if (fileUrls.length <= 1) {
+      alert('Cannot delete the last file. Use replace file or delete the entire document instead.')
+      return
+    }
+    
+    if (!confirm(`Are you sure you want to delete file ${fileIndex + 1}? This cannot be undone.`)) return
+
+    try {
+      setFileOperationLoading(true)
+      await api.deleteDocumentFile(editingDocument.id, fileIndex)
+      
+      // Refresh document data
+      const updatedDocs = await api.getDocuments()
+      const updatedDoc = updatedDocs.find(d => d.id === editingDocument.id)
+      if (updatedDoc) {
+        setEditingDocument(updatedDoc)
+      }
+      
+      await loadData()
+      alert('File deleted successfully!')
+    } catch (error: any) {
+      console.error('File delete failed:', error)
+      alert(error.response?.data?.error || 'Failed to delete file')
+    } finally {
+      setFileOperationLoading(false)
+    }
+  }
+
+  const handleAddFile = async () => {
+    if (!editingDocument || !newFile) return
+    
+    const validation = validateFile(newFile)
+    if (!validation.valid) {
+      alert(validation.error)
+      return
+    }
+
+    try {
+      setFileOperationLoading(true)
+      await api.addDocumentFile(editingDocument.id, newFile)
+      
+      // Refresh document data
+      const updatedDocs = await api.getDocuments()
+      const updatedDoc = updatedDocs.find(d => d.id === editingDocument.id)
+      if (updatedDoc) {
+        setEditingDocument(updatedDoc)
+      }
+      
+      setNewFile(null)
+      setAddingFile(false)
+      await loadData()
+      alert('File added successfully!')
+    } catch (error: any) {
+      console.error('File add failed:', error)
+      alert(error.response?.data?.error || 'Failed to add file')
+    } finally {
+      setFileOperationLoading(false)
     }
   }
 
@@ -1600,6 +1747,125 @@ export default function Admin() {
                 >
                   <span>+</span> Add related article
                 </button>
+              </div>
+
+              {/* File Management Section */}
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Document Files
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Manage the files attached to this document. You can replace or delete files (max 50MB per file).
+                </p>
+                
+                {/* List of current files */}
+                <div className="space-y-2 mb-4">
+                  {getDocumentFileUrls(editingDocument).map((fileUrl, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate" title={fileUrl}>
+                          {index + 1}. {getFilenameFromUrl(fileUrl)}
+                        </p>
+                        <a 
+                          href={fileUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline truncate block"
+                        >
+                          View file
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {replacingFileIndex === index ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx,.csv,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                              onChange={(e) => setReplaceFile(e.target.files?.[0] || null)}
+                              className="text-xs max-w-[150px]"
+                            />
+                            <button
+                              onClick={() => handleReplaceFile(index)}
+                              disabled={!replaceFile || fileOperationLoading}
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                            >
+                              {fileOperationLoading ? '...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReplacingFileIndex(null)
+                                setReplaceFile(null)
+                              }}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setReplacingFileIndex(index)}
+                              disabled={fileOperationLoading}
+                              className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+                              title="Replace this file"
+                            >
+                              Replace
+                            </button>
+                            {getDocumentFileUrls(editingDocument).length > 1 && (
+                              <button
+                                onClick={() => handleDeleteFile(index)}
+                                disabled={fileOperationLoading}
+                                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                                title="Delete this file"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add new file */}
+                {addingFile ? (
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
+                    <Plus className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.csv,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp"
+                      onChange={(e) => setNewFile(e.target.files?.[0] || null)}
+                      className="flex-1 text-sm"
+                    />
+                    <button
+                      onClick={handleAddFile}
+                      disabled={!newFile || fileOperationLoading}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                    >
+                      {fileOperationLoading ? 'Adding...' : 'Add File'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAddingFile(false)
+                        setNewFile(null)
+                      }}
+                      className="px-3 py-1 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingFile(true)}
+                    disabled={fileOperationLoading}
+                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" /> Add another file
+                  </button>
+                )}
               </div>
 
               {/* Thumbnail Upload Section */}
