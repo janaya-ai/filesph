@@ -101,12 +101,13 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
       const scaledViewport = page.getViewport({ scale })
       
       // Get device pixel ratio for high-DPI displays (Retina, mobile screens)
-      // Cap at 2 to balance quality with memory/performance on very high-DPI devices
-      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2)
+      // Use higher ratio (up to 3) for better quality on modern mobile devices
+      const devicePixelRatio = Math.min(window.devicePixelRatio || 1, 3)
 
       // Set canvas internal size to account for device pixel ratio
-      canvas.height = scaledViewport.height * devicePixelRatio
-      canvas.width = scaledViewport.width * devicePixelRatio
+      // This ensures crisp rendering on high-DPI mobile screens
+      canvas.height = Math.floor(scaledViewport.height * devicePixelRatio)
+      canvas.width = Math.floor(scaledViewport.width * devicePixelRatio)
       
       // Set canvas display size (CSS pixels)
       canvas.style.width = '100%'

@@ -27,41 +27,63 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   })
 
   useEffect(() => {
+    let isCancelled = false
+    
     const fetchDocument = async (retryCount = 0) => {
-      const MAX_RETRIES = 3
-      const RETRY_DELAY = 500 // ms
+      const MAX_RETRIES = 5
+      const BASE_DELAY = 800 // ms - longer for mobile networks
       
       try {
-        setLoading(true)
+        // Only set loading on first attempt to avoid flashing
+        if (retryCount === 0) {
+          setLoading(true)
+        }
+        
         if (!slug) {
           setDocument(null)
           setLoading(false)
           return
         }
+        
         const doc = await api.getDocument(slug)
+        
+        if (isCancelled) return
+        
         setDocument(doc)
         setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
         setCurrentFileIndex(0) // Reset to first file
       } catch (error: any) {
+        if (isCancelled) return
+        
         console.error(`Error fetching document (attempt ${retryCount + 1}):`, error)
         
-        // Retry on 404 or network errors - sometimes server needs a moment
-        const is404 = error?.response?.status === 404
+        // Retry on 404, 500, or network errors - server may need time to sync
+        const status = error?.response?.status
+        const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503
         const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED'
         
-        if ((is404 || isNetworkError) && retryCount < MAX_RETRIES) {
-          console.log(`Retrying document fetch in ${RETRY_DELAY}ms...`)
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (retryCount + 1)))
+        if ((isRetryableError || isNetworkError) && retryCount < MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(1.5, retryCount) // Exponential backoff
+          console.log(`Retrying document fetch in ${delay}ms (attempt ${retryCount + 2}/${MAX_RETRIES + 1})...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          
+          if (isCancelled) return
           return fetchDocument(retryCount + 1)
         }
         
         setDocument(null)
       } finally {
-        setLoading(false)
+        if (!isCancelled) {
+          setLoading(false)
+        }
       }
     }
 
     fetchDocument()
+    
+    return () => {
+      isCancelled = true
+    }
   }, [slug])
 
   // Get all file URLs (from fileUrls array or legacy fileUrl)
