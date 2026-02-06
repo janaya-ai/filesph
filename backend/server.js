@@ -439,6 +439,7 @@ app.get('/api/embed/:slug', async (req, res) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${docName} | filesph.com</title>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9735892690539350" crossorigin="anonymous"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -458,9 +459,8 @@ app.get('/api/embed/:slug', async (req, res) => {
     .btn-primary:hover { background: #1d4ed8; }
     .nav-text { font-size: 11px; color: #6b7280; font-variant-numeric: tabular-nums; }
     .divider { width: 1px; height: 16px; background: #e5e7eb; margin: 0 2px; }
-    .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 16px; text-align: center; flex-shrink: 0; }
+    .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 16px; text-align: center; flex-shrink: 0; min-height: 100px; }
     .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
-    .ad-placeholder { background: #e5e7eb; border-radius: 6px; height: 90px; max-width: 728px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #9ca3af; }
     .viewer { flex: 1; min-height: 0; }
     .viewer iframe { width: 100%; height: 100%; border: none; }
     @media (max-width: 640px) {
@@ -505,7 +505,13 @@ app.get('/api/embed/:slug', async (req, res) => {
     </div>
 
     <div class="ad-slot">
-      <div class="ad-placeholder">Advertisement</div>
+      <ins class="adsbygoogle"
+        style="display:block"
+        data-ad-client="ca-pub-9735892690539350"
+        data-ad-slot="auto"
+        data-ad-format="horizontal"
+        data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
     <div class="viewer">
@@ -513,7 +519,13 @@ app.get('/api/embed/:slug', async (req, res) => {
     </div>
 
     <div class="ad-slot ad-slot-bottom">
-      <div class="ad-placeholder">Advertisement</div>
+      <ins class="adsbygoogle"
+        style="display:block"
+        data-ad-client="ca-pub-9735892690539350"
+        data-ad-slot="auto"
+        data-ad-format="horizontal"
+        data-full-width-responsive="true"></ins>
+      <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
   </div>
 
