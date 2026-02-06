@@ -46,7 +46,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
           setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }));
           setCurrentFileIndex(0);
           setLoading(false);
-        } catch (error) {
+        } catch (error: any) {
           if (isCancelled) return;
           const status = error?.response?.status;
           const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503;
@@ -727,4 +727,4 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   )
 }
 
-export default DocumentPage
+export default DocumentPage;
