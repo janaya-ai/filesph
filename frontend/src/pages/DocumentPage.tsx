@@ -28,43 +28,42 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   })
 
   useEffect(() => {
-    useEffect(() => {
-      let isCancelled = false;
-      const fetchDocument = async (retryCount = 0) => {
-        const MAX_RETRIES = 12;
-        const BASE_DELAY = 800; // ms
-        if (retryCount === 0) setLoading(true);
-        if (!safeSlug) {
-          setDocument(null);
-          setLoading(false);
+    let isCancelled = false;
+    const fetchDocument = async (retryCount = 0) => {
+      const MAX_RETRIES = 12;
+      const BASE_DELAY = 800; // ms
+      if (retryCount === 0) setLoading(true);
+      if (!safeSlug) {
+        setDocument(null);
+        setLoading(false);
+        return;
+      }
+      try {
+        const doc = await api.getDocument(safeSlug);
+        if (isCancelled) return;
+        setDocument(doc);
+        setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }));
+        setCurrentFileIndex(0);
+        setLoading(false);
+      } catch (error: any) {
+        if (isCancelled) return;
+        const status = error?.response?.status;
+        const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503;
+        const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED';
+        if ((isRetryableError || isNetworkError) && retryCount < MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(1.4, retryCount);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          if (isCancelled) return;
+          await fetchDocument(retryCount + 1);
           return;
         }
-        try {
-          const doc = await api.getDocument(safeSlug);
-          if (isCancelled) return;
-          setDocument(doc);
-          setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }));
-          setCurrentFileIndex(0);
-          setLoading(false);
-        } catch (error: any) {
-          if (isCancelled) return;
-          const status = error?.response?.status;
-          const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503;
-          const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED';
-          if ((isRetryableError || isNetworkError) && retryCount < MAX_RETRIES) {
-            const delay = BASE_DELAY * Math.pow(1.4, retryCount);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            if (isCancelled) return;
-            await fetchDocument(retryCount + 1);
-            return;
-          }
-          setDocument(null);
-          setLoading(false);
-        }
-      };
-      fetchDocument();
-      return () => { isCancelled = true; };
-    }, [safeSlug]);
+        setDocument(null);
+        setLoading(false);
+      }
+    };
+    fetchDocument();
+    return () => { isCancelled = true; };
+  }, [safeSlug]);
 
   // Re-fetch document when returning from idle/background tab
   useEffect(() => {
