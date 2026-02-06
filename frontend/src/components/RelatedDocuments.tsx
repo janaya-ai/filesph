@@ -69,7 +69,7 @@ export default function RelatedDocuments({
         {relatedDocs.map((doc) => (
           <Link
             key={doc.id}
-            to={`/d/${doc.slug}`}
+            to={`/d/${encodeURIComponent(doc.slug)}`}
             className="flex gap-3 p-2 rounded-lg hover:bg-gray-50 transition group"
           >
             {/* Thumbnail */}

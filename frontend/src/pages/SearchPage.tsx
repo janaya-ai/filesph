@@ -368,7 +368,9 @@ function DocumentCard({ document, categories, listView, formatDate }: DocumentCa
     .filter(Boolean)
     .join(', ')
 
-  const documentUrl = document.slug ? `/d/${document.slug}` : `/view/${document.id}`
+  const documentUrl = document.slug
+    ? `/d/${encodeURIComponent(document.slug)}`
+    : `/view/${document.id}`
 
   if (listView) {
     return (

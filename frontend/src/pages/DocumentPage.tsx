@@ -209,7 +209,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     )
   }
 
-  const pageUrl = `${window.location.origin}/d/${document.slug}`
+  const pageUrl = `${window.location.origin}/d/${encodeURIComponent(document.slug)}`
   
   // Determine thumbnail URL - R2 thumbnailUrl takes priority, then legacy thumbnail
   let thumbnailUrl = `${window.location.origin}/placeholder.jpg`
@@ -698,14 +698,14 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
               
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
                 <code className="text-sm text-gray-800 break-all">
-                  {`<iframe src="${window.location.origin}/embed/${document?.slug}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`}
+                  {`<iframe src="${window.location.origin}/embed/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`}
                 </code>
               </div>
               
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `<iframe src="${window.location.origin}/embed/${document?.slug}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
+                    `<iframe src="${window.location.origin}/embed/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
                   )
                   alert('Embed code copied to clipboard!')
                 }}
@@ -720,12 +720,12 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                 </p>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                   <code className="text-sm text-gray-800 break-all">
-                    {`${window.location.origin}/d/${document?.slug}`}
+                    {`${window.location.origin}/d/${encodeURIComponent(document?.slug || '')}`}
                   </code>
                 </div>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/d/${document?.slug}`)
+                    navigator.clipboard.writeText(`${window.location.origin}/d/${encodeURIComponent(document?.slug || '')}`)
                     alert('Link copied to clipboard!')
                   }}
                   className="mt-2 w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"

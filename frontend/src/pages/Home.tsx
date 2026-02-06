@@ -420,7 +420,9 @@ function DocumentCard({ document, categories, featured }: DocumentCardProps) {
     .filter(Boolean)
     .join(', ')
 
-  const documentUrl = document.slug ? `/d/${document.slug}` : `/view/${document.id}`
+  const documentUrl = document.slug
+    ? `/d/${encodeURIComponent(document.slug)}`
+    : `/view/${document.id}`
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -502,7 +504,9 @@ function CompactDocumentCard({ document, categories, rank, showDate }: CompactDo
     .map(catId => categories.find(c => c.id === catId)?.name)
     .filter(Boolean)[0] || 'Uncategorized'
 
-  const documentUrl = document.slug ? `/d/${document.slug}` : `/view/${document.id}`
+  const documentUrl = document.slug
+    ? `/d/${encodeURIComponent(document.slug)}`
+    : `/view/${document.id}`
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
