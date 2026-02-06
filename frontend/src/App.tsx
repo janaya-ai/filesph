@@ -4,6 +4,7 @@ import Viewer from './pages/Viewer'
 import Admin from './pages/Admin'
 import Login from './pages/Login'
 import DocumentPage from './pages/DocumentPage'
+import EmbedViewer from './pages/EmbedViewer'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import About from './pages/About'
@@ -33,7 +34,7 @@ function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/view/:docId" element={<Viewer />} />
         <Route path="/d/:slug" element={<DocumentPage />} />
-        <Route path="/embed/:slug" element={<DocumentPage embedded />} />
+        <Route path="/embed/:slug" element={<EmbedViewer />} />
         <Route path="/agency/:slug" element={<AgencyPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<Admin />} />

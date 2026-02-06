@@ -2,3 +2,13 @@
 /embed/*
   Content-Security-Policy: frame-ancestors *
   X-Frame-Options: ALLOWALL
+
+# Allow framing for secure PDF streaming (proxied to backend)
+/api/pdf/*
+  Content-Security-Policy: frame-ancestors *
+  X-Frame-Options: ALLOWALL
+
+# Allow framing for server-rendered embed page (proxied to backend)
+/api/embed/*
+  Content-Security-Policy: frame-ancestors *
+  X-Frame-Options: ALLOWALL

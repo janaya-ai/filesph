@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid'
 import Jimp from 'jimp'
 import { PDFDocument } from 'pdf-lib'
 import archiver from 'archiver'
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -308,6 +308,240 @@ function getFilenameFromUrl(url) {
     return 'document'
   }
 }
+
+// ========================================
+// Secure PDF/file streaming — hides raw R2 URLs completely
+// Used by embed viewer iframe: <iframe src="/api/pdf/:slug">
+// ========================================
+app.get('/api/pdf/:slug', async (req, res) => {
+  const { slug } = req.params
+  const fileIndex = parseInt(req.query.file) || 0
+
+  try {
+    const data = await readData()
+    const document = data.documents.find(doc => doc.id === slug || doc.slug === slug)
+
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' })
+    }
+
+    // Collect file URLs from all supported formats
+    let fileUrls = []
+    if (document.fileUrls && document.fileUrls.length > 0) {
+      fileUrls = document.fileUrls
+    } else if (document.fileUrl) {
+      fileUrls = [document.fileUrl]
+    } else if (document.files && document.files.length > 0) {
+      // Legacy local files — read and serve directly
+      const file = document.files[fileIndex]
+      if (!file) return res.status(400).json({ error: 'Invalid file index' })
+      const localPath = path.join(uploadsDir, file.filename)
+      try {
+        const fileBuffer = await fs.readFile(localPath)
+        res.setHeader('Content-Type', file.mimeType || 'application/octet-stream')
+        res.setHeader('Content-Disposition', `inline; filename="${file.originalName}"`)
+        res.setHeader('Cache-Control', 'public, max-age=86400')
+        return res.send(fileBuffer)
+      } catch {
+        return res.status(404).json({ error: 'File not found on disk' })
+      }
+    }
+
+    if (fileUrls.length === 0) {
+      return res.status(400).json({ error: 'No files available' })
+    }
+    if (fileIndex < 0 || fileIndex >= fileUrls.length) {
+      return res.status(400).json({ error: 'Invalid file index' })
+    }
+
+    const fileUrl = fileUrls[fileIndex]
+    const filename = getFilenameFromUrl(fileUrl)
+
+    // Try R2 via S3 API first (works even with private buckets)
+    const key = getR2KeyFromUrl(fileUrl)
+    if (key && r2Client && R2_BUCKET_NAME) {
+      try {
+        const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key })
+        const r2Response = await r2Client.send(command)
+
+        res.setHeader('Content-Type', r2Response.ContentType || 'application/octet-stream')
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+        res.setHeader('Cache-Control', 'public, max-age=86400')
+        if (r2Response.ContentLength) {
+          res.setHeader('Content-Length', r2Response.ContentLength)
+        }
+
+        // Pipe the R2 stream directly to the response
+        r2Response.Body.pipe(res)
+
+        // Track view (fire-and-forget)
+        document.views = (document.views || 0) + 1
+        writeData(data).catch(() => {})
+        return
+      } catch (r2Error) {
+        console.error('R2 GetObject failed, falling back to fetch:', r2Error.message)
+      }
+    }
+
+    // Fallback: fetch via public URL
+    const response = await fetch(fileUrl)
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch file' })
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream'
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+
+    const buffer = await response.arrayBuffer()
+    res.send(Buffer.from(buffer))
+
+    // Track view
+    document.views = (document.views || 0) + 1
+    await writeData(data)
+  } catch (error) {
+    console.error('PDF streaming error:', error)
+    res.status(500).json({ error: 'Failed to stream file' })
+  }
+})
+
+// ========================================
+// Server-rendered embeddable viewer page
+// Serves a self-contained HTML page with branding, ads, and secure PDF iframe
+// This route is on the backend so it works regardless of static site SPA routing
+// ========================================
+app.get('/api/embed/:slug', async (req, res) => {
+  const { slug } = req.params
+
+  try {
+    const data = await readData()
+    const document = data.documents.find(doc => doc.id === slug || doc.slug === slug)
+
+    if (!document) {
+      return res.status(404).send(`<!DOCTYPE html><html><body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#666"><p>Document not found</p></body></html>`)
+    }
+
+    const fileCount = (document.fileUrls && document.fileUrls.length > 0)
+      ? document.fileUrls.length
+      : document.fileUrl ? 1 : (document.files ? document.files.length : 0)
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
+    const docName = document.name.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+    // Track embedded view
+    document.views = (document.views || 0) + 1
+    writeData(data).catch(() => {})
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${docName} | filesph.com</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .container { display: flex; flex-direction: column; height: 100vh; background: #f3f4f6; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: #fff; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
+    .toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .brand { color: #2563eb; font-weight: 700; font-size: 14px; text-decoration: none; white-space: nowrap; }
+    .brand:hover { color: #1d4ed8; }
+    .sep { color: #d1d5db; }
+    .doc-name { font-size: 14px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toolbar-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; }
+    .btn-icon { background: transparent; color: #4b5563; }
+    .btn-icon:hover { background: #f3f4f6; }
+    .btn-icon:disabled { opacity: 0.3; cursor: default; }
+    .btn-primary { background: #2563eb; color: #fff; font-weight: 500; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .nav-text { font-size: 11px; color: #6b7280; font-variant-numeric: tabular-nums; }
+    .divider { width: 1px; height: 16px; background: #e5e7eb; margin: 0 2px; }
+    .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 16px; text-align: center; flex-shrink: 0; }
+    .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
+    .ad-placeholder { background: #e5e7eb; border-radius: 6px; height: 90px; max-width: 728px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #9ca3af; }
+    .viewer { flex: 1; min-height: 0; }
+    .viewer iframe { width: 100%; height: 100%; border: none; }
+    @media (max-width: 640px) {
+      .hide-mobile { display: none; }
+      .doc-name { max-width: 120px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <a href="${frontendUrl}" target="_blank" rel="noopener noreferrer" class="brand">filesph.com</a>
+        <span class="sep">|</span>
+        <span class="doc-name" title="${docName}">${docName}</span>
+      </div>
+      <div class="toolbar-right">
+        ${fileCount > 1 ? `
+          <button class="btn btn-icon" id="prevBtn" onclick="navigate(-1)" disabled title="Previous file">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <span class="nav-text" id="navText">1/${fileCount}</span>
+          <button class="btn btn-icon" id="nextBtn" onclick="navigate(1)" ${fileCount <= 1 ? 'disabled' : ''} title="Next file">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <span class="divider"></span>
+        ` : ''}
+        <a href="/api/download/${encodeURIComponent(slug)}/0" target="_blank" class="btn btn-icon" title="Download" id="downloadBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </a>
+        ${fileCount > 1 ? `
+          <a href="/api/download-all/${encodeURIComponent(slug)}" target="_blank" class="btn btn-icon" title="Download all as ZIP">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </a>
+        ` : ''}
+        <span class="divider"></span>
+        <a href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <span class="hide-mobile">Open Full</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="ad-slot">
+      <div class="ad-placeholder">Advertisement</div>
+    </div>
+
+    <div class="viewer">
+      <iframe id="pdfFrame" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${docName}" allow="fullscreen"></iframe>
+    </div>
+
+    <div class="ad-slot ad-slot-bottom">
+      <div class="ad-placeholder">Advertisement</div>
+    </div>
+  </div>
+
+  ${fileCount > 1 ? `
+  <script>
+    let current = 0;
+    const total = ${fileCount};
+    function navigate(dir) {
+      current = Math.max(0, Math.min(total - 1, current + dir));
+      document.getElementById('pdfFrame').src = '/api/pdf/${encodeURIComponent(slug)}?file=' + current;
+      document.getElementById('navText').textContent = (current + 1) + '/' + total;
+      document.getElementById('prevBtn').disabled = current === 0;
+      document.getElementById('nextBtn').disabled = current >= total - 1;
+      document.getElementById('downloadBtn').href = '/api/download/${encodeURIComponent(slug)}/' + current;
+    }
+  </script>
+  ` : ''}
+</body>
+</html>`
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=300')
+    res.send(html)
+  } catch (error) {
+    console.error('Embed page error:', error)
+    res.status(500).send('Failed to load embed page')
+  }
+})
 
 // Download single file from R2 (proxied through backend)
 app.get('/api/download/:docId/:fileIndex?', async (req, res) => {

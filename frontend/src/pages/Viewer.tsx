@@ -156,7 +156,7 @@ export default function Viewer({ embedded }: ViewerProps) {
 
   const copyEmbedCode = () => {
     const slug = document?.slug || docId
-    const embedCode = `<iframe src="${window.location.origin}/embed/${encodeURIComponent(slug!)}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
+    const embedCode = `<iframe src="${window.location.origin}/api/embed/${encodeURIComponent(slug!)}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
     navigator.clipboard.writeText(embedCode)
     alert('Embed code copied to clipboard!')
   }
