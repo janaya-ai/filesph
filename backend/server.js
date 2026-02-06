@@ -443,99 +443,22 @@ app.get('/api/embed/:slug', async (req, res) => {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; }
-    .main-container { min-height: 100vh; display: flex; flex-direction: column; }
-    .header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0; }
-    .header-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-    .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: #2563eb; font-weight: bold; font-size: 22px; }
-    .nav { display: flex; gap: 24px; }
-    .nav-link { color: #374151; text-decoration: none; font-weight: 500; font-size: 16px; transition: color 0.2s; }
-    .nav-link:hover { color: #2563eb; }
-    .toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: #fff; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-    .toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .brand { color: #2563eb; font-weight: 700; font-size: 14px; text-decoration: none; white-space: nowrap; }
-    .brand:hover { color: #1d4ed8; }
-    .sep { color: #d1d5db; }
-    .doc-name { font-size: 14px; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .toolbar-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-    .btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; text-decoration: none; }
-    .btn-icon { background: transparent; color: #4b5563; }
-    .btn-icon:hover { background: #f3f4f6; }
-    .btn-icon:disabled { opacity: 0.3; cursor: default; }
-    .btn-primary { background: #2563eb; color: #fff; font-weight: 500; }
-    .btn-primary:hover { background: #1d4ed8; }
-    .nav-text { font-size: 11px; color: #6b7280; font-variant-numeric: tabular-nums; }
-    .divider { width: 1px; height: 16px; background: #e5e7eb; margin: 0 2px; }
-    .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 16px; text-align: center; flex-shrink: 0; min-height: 100px; }
+    .embed-container { min-height: 100vh; display: flex; flex-direction: column; }
+    .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 0; text-align: center; flex-shrink: 0; min-height: 80px; }
     .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
-    .viewer { flex: 1; min-height: 0; }
-    .viewer iframe { width: 100%; height: 100%; border: none; }
-    .footer { background: #1f2937; color: #fff; padding: 32px 0; margin-top: 32px; }
-    .footer-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; text-align: center; }
-    .footer-logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
-    .footer-logo span { font-size: 22px; font-weight: bold; color: #60a5fa; }
-    .footer-links { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
-    .footer-link { color: #d1d5db; text-decoration: none; font-size: 15px; transition: color 0.2s; }
-    .footer-link:hover { color: #fff; }
-    .footer-disclaimer { color: #d1d5db; font-size: 13px; margin-bottom: 8px; }
-    .footer-copyright { color: #9ca3af; font-size: 13px; }
+    .viewer { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .viewer-iframe { width: 100%; max-width: 900px; height: 80vh; min-height: 400px; border: none; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-radius: 10px; }
+    @media (max-width: 900px) {
+      .viewer-iframe { max-width: 100vw; height: 70vh; min-height: 300px; border-radius: 0; }
+    }
     @media (max-width: 640px) {
-      .header-inner, .footer-inner { padding: 12px 8px; }
-      .nav { gap: 12px; }
-      .nav-link { font-size: 14px; }
-      .footer-links { gap: 12px; }
+      .ad-slot, .ad-slot-bottom { min-height: 60px; padding: 4px 0; }
+      .viewer-iframe { height: 60vh; min-height: 200px; }
     }
   </style>
 </head>
 <body>
-  <div class="main-container">
-    <header class="header">
-      <div class="header-inner">
-        <a href="${frontendUrl}" class="logo">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10v10H7z"/></svg>
-          <span>FilesPH</span>
-        </a>
-        <nav class="nav">
-          <a href="${frontendUrl}" class="nav-link">Home</a>
-          <a href="${frontendUrl}/about" class="nav-link">About</a>
-          <a href="${frontendUrl}/privacy-policy" class="nav-link">Privacy Policy</a>
-          <a href="${frontendUrl}/terms-of-service" class="nav-link">Terms</a>
-        </nav>
-      </div>
-    </header>
-
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <a href="${frontendUrl}" target="_blank" rel="noopener noreferrer" class="brand">filesph.com</a>
-        <span class="sep">|</span>
-        <span class="doc-name" title="${docName}">${docName}</span>
-      </div>
-      <div class="toolbar-right">
-        ${fileCount > 1 ? `
-          <button class="btn btn-icon" id="prevBtn" onclick="navigate(-1)" disabled title="Previous file">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <span class="nav-text" id="navText">1/${fileCount}</span>
-          <button class="btn btn-icon" id="nextBtn" onclick="navigate(1)" ${fileCount <= 1 ? 'disabled' : ''} title="Next file">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-          </button>
-          <span class="divider"></span>
-        ` : ''}
-        <a href="/api/download/${encodeURIComponent(slug)}/0" target="_blank" class="btn btn-icon" title="Download" id="downloadBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </a>
-        ${fileCount > 1 ? `
-          <a href="/api/download-all/${encodeURIComponent(slug)}" target="_blank" class="btn btn-icon" title="Download all as ZIP">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          </a>
-        ` : ''}
-        <span class="divider"></span>
-        <a href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          <span class="hide-mobile">Open Full</span>
-        </a>
-      </div>
-    </div>
-
+  <div class="embed-container">
     <div class="ad-slot">
       <ins class="adsbygoogle"
         style="display:block"
@@ -547,7 +470,7 @@ app.get('/api/embed/:slug', async (req, res) => {
     </div>
 
     <div class="viewer">
-      <iframe id="pdfFrame" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${docName}" allow="fullscreen"></iframe>
+      <iframe id="pdfFrame" class="viewer-iframe" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${docName}" allow="fullscreen"></iframe>
     </div>
 
     <div class="ad-slot ad-slot-bottom">
@@ -560,41 +483,17 @@ app.get('/api/embed/:slug', async (req, res) => {
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-logo">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10v10H7z"/></svg>
-          <span>FilesPH</span>
-        </div>
-        <div class="footer-links">
-          <a href="${frontendUrl}/about" class="footer-link">About</a>
-          <a href="${frontendUrl}/privacy-policy" class="footer-link">Privacy Policy</a>
-          <a href="${frontendUrl}/terms-of-service" class="footer-link">Terms</a>
-        </div>
-        <div class="footer-disclaimer">
-          FilesPH is an independent platform and is not affiliated with or operated by any government agency.
-        </div>
-        <div class="footer-copyright">
-          © 2026 FilesPH
-        </div>
-      </div>
-    </footer>
+    ${fileCount > 1 ? `
+    <script>
+      let current = 0;
+      const total = ${fileCount};
+      function navigate(dir) {
+        current = Math.max(0, Math.min(total - 1, current + dir));
+        document.getElementById('pdfFrame').src = '/api/pdf/${encodeURIComponent(slug)}?file=' + current;
+      }
+    </script>
+    ` : ''}
   </div>
-
-  ${fileCount > 1 ? `
-  <script>
-    let current = 0;
-    const total = ${fileCount};
-    function navigate(dir) {
-      current = Math.max(0, Math.min(total - 1, current + dir));
-      document.getElementById('pdfFrame').src = '/api/pdf/${encodeURIComponent(slug)}?file=' + current;
-      document.getElementById('navText').textContent = (current + 1) + '/' + total;
-      document.getElementById('prevBtn').disabled = current === 0;
-      document.getElementById('nextBtn').disabled = current >= total - 1;
-      document.getElementById('downloadBtn').href = '/api/download/${encodeURIComponent(slug)}/' + current;
-    }
-  </script>
-  ` : ''}
 </body>
 </html>`
 
