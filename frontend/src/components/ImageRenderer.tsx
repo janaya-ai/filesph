@@ -1,7 +1,8 @@
 import type { ViewerState } from '../types'
+import { API_BASE_URL } from '../utils/api'
 
 // API base URL for proxy
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE = API_BASE_URL || window.location.origin
 
 interface ImageRendererProps {
   fileUrl: string

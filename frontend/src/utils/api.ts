@@ -1,8 +1,23 @@
 import axios from 'axios'
 import type { Document, Category, Agency, RelatedArticle } from '../types'
 
-const API_BASE = import.meta.env.VITE_API_URL 
-  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+const envApiUrl = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
+  : ''
+
+const getDefaultApiOrigin = () => {
+  if (typeof window === 'undefined') return ''
+  const host = window.location.hostname
+  const isLocal = host === 'localhost' || host === '127.0.0.1'
+  const isFilesph = host === 'filesph.com' || host.endsWith('.filesph.com')
+
+  if (isLocal || isFilesph) return window.location.origin
+  return 'https://filesph.com'
+}
+
+export const API_BASE_URL = envApiUrl || getDefaultApiOrigin()
+export const API_BASE = API_BASE_URL
+  ? `${API_BASE_URL.replace(/\/$/, '')}/api`
   : '/api'
 
 export interface CreateDocumentData {

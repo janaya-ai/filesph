@@ -14,7 +14,7 @@ import {
   ChevronRight,
   FileArchive
 } from 'lucide-react'
-import { api } from '../utils/api'
+import { api, API_BASE_URL } from '../utils/api'
 import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
@@ -128,7 +128,7 @@ export default function Viewer({ embedded }: ViewerProps) {
     if (!document) return
 
     // Use backend download route (proxies R2 and hides URL)
-    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download/${document.id}/${currentFileIndex}`
+    const downloadUrl = `${API_BASE_URL}/api/download/${document.id}/${currentFileIndex}`
     window.open(downloadUrl, '_blank')
   }
 
@@ -136,7 +136,7 @@ export default function Viewer({ embedded }: ViewerProps) {
     if (!document) return
     
     // Download all files as ZIP through backend
-    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download-all/${document.id}`
+    const downloadUrl = `${API_BASE_URL}/api/download-all/${document.id}`
     window.open(downloadUrl, '_blank')
   }
 

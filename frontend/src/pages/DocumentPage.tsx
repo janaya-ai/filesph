@@ -6,7 +6,7 @@ import PDFRenderer from '../components/PDFRenderer'
 import ImageRenderer from '../components/ImageRenderer'
 import TextRenderer from '../components/TextRenderer'
 import RelatedDocuments from '../components/RelatedDocuments'
-import { api } from '../utils/api'
+import { api, API_BASE_URL } from '../utils/api'
 import { Document as DocumentType, ViewerState, getFileTypeFromUrl } from '../types'
 
 interface DocumentPageProps {
@@ -15,6 +15,7 @@ interface DocumentPageProps {
 
 function DocumentPage({ embedded = false }: DocumentPageProps) {
   const { slug } = useParams<{ slug: string }>()
+  const safeSlug = slug ? decodeURIComponent(slug) : ''
   const [document, setDocument] = useState<DocumentType | null>(null)
   const [loading, setLoading] = useState(true)
   const [showEmbedCode, setShowEmbedCode] = useState(false)
@@ -39,13 +40,13 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
           setLoading(true)
         }
         
-        if (!slug) {
+        if (!safeSlug) {
           setDocument(null)
           setLoading(false)
           return
         }
         
-        const doc = await api.getDocument(slug)
+        const doc = await api.getDocument(safeSlug)
         
         if (isCancelled) return
         
@@ -84,7 +85,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     return () => {
       isCancelled = true
     }
-  }, [slug])
+  }, [safeSlug])
 
   // Re-fetch document when returning from idle/background tab
   useEffect(() => {
@@ -142,7 +143,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     if (!document) return
     
     // Use backend download route (proxies R2 and hides URL)
-    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download/${document.slug || document.id}/${currentFileIndex}`
+    const downloadUrl = `${API_BASE_URL}/api/download/${document.slug || document.id}/${currentFileIndex}`
     window.open(downloadUrl, '_blank')
   }
 
@@ -150,7 +151,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     if (!document) return
     
     // Download all files as ZIP through backend
-    const downloadUrl = `${import.meta.env.VITE_API_URL || ''}/api/download-all/${document.slug || document.id}`
+    const downloadUrl = `${API_BASE_URL}/api/download-all/${document.slug || document.id}`
     window.open(downloadUrl, '_blank')
   }
 

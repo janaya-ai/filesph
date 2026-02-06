@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import type { ViewerState } from '../types'
+import { API_BASE_URL } from '../utils/api'
 
 // Configure PDF.js worker - use CDN for simplicity
 // In production, consider bundling the worker with your app
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 // API base URL for proxy
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE = API_BASE_URL || window.location.origin
 
 interface PDFRendererProps {
   fileUrl: string
