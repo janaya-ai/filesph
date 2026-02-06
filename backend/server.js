@@ -447,16 +447,16 @@ app.get('/api/embed/:slug', async (req, res) => {
     .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 0; text-align: center; flex-shrink: 0; min-height: 80px; }
     .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
     .viewer { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    .viewer-iframe { width: 100%; max-width: 900px; height: 80vh; min-height: 400px; border: none; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-radius: 10px; }
+    .viewer-iframe { width: 100vw; max-width: 900px; height: 80vh; min-height: 200px; border: none; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-radius: 10px; }
     .view-btn-wrap { margin: 18px 0 0 0; display: flex; justify-content: center; }
     .view-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 16px; padding: 12px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
     .view-btn:hover { background: #1d4ed8; }
     @media (max-width: 900px) {
-      .viewer-iframe { max-width: 100vw; height: 70vh; min-height: 300px; border-radius: 0; }
+      .viewer-iframe { max-width: 100vw; height: 70vh; min-height: 150px; border-radius: 0; }
     }
     @media (max-width: 640px) {
       .ad-slot, .ad-slot-bottom { min-height: 60px; padding: 4px 0; }
-      .viewer-iframe { height: 60vh; min-height: 200px; }
+      .viewer-iframe { width: 100vw; height: 50vh; min-height: 120px; border-radius: 0; }
       .view-btn { font-size: 15px; padding: 10px 16px; }
     }
   </style>

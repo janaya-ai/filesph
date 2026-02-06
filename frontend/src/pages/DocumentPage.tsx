@@ -28,92 +28,68 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
   })
 
   useEffect(() => {
-    let isCancelled = false
-    
-    const fetchDocument = async (retryCount = 0) => {
-      const MAX_RETRIES = 8
-      const BASE_DELAY = 1000 // ms
-      
-      // Only set loading on first attempt to avoid flashing
-      if (retryCount === 0) {
-        setLoading(true)
-      }
-      
-      if (!safeSlug) {
-        setDocument(null)
-        setLoading(false)
-        return
-      }
-      
-      try {
-        const doc = await api.getDocument(safeSlug)
-        
-        if (isCancelled) return
-        
-        setDocument(doc)
-        setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
-        setCurrentFileIndex(0) // Reset to first file
-        setLoading(false)
-      } catch (error: any) {
-        if (isCancelled) return
-        
-        console.error(`Error fetching document (attempt ${retryCount + 1}):`, error)
-        
-        // Retry on 404, 500, or network errors - server may need time to sync or wake from cold start
-        const status = error?.response?.status
-        const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503
-        const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED'
-        
-        if ((isRetryableError || isNetworkError) && retryCount < MAX_RETRIES) {
-          const delay = BASE_DELAY * Math.pow(1.5, retryCount) // Exponential backoff
-          console.log(`Retrying document fetch in ${delay}ms (attempt ${retryCount + 2}/${MAX_RETRIES + 1})...`)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          
-          if (isCancelled) return
-          // Await the retry so loading stays true until all retries complete
-          await fetchDocument(retryCount + 1)
-          return
+    useEffect(() => {
+      let isCancelled = false;
+      const fetchDocument = async (retryCount = 0) => {
+        const MAX_RETRIES = 12;
+        const BASE_DELAY = 800; // ms
+        if (retryCount === 0) setLoading(true);
+        if (!safeSlug) {
+          setDocument(null);
+          setLoading(false);
+          return;
         }
-        
-        // All retries exhausted or non-retryable error
-        setDocument(null)
-        setLoading(false)
-      }
-    }
-
-    fetchDocument()
-    
-    return () => {
-      isCancelled = true
-    }
-  }, [safeSlug])
+        try {
+          const doc = await api.getDocument(safeSlug);
+          if (isCancelled) return;
+          setDocument(doc);
+          setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }));
+          setCurrentFileIndex(0);
+          setLoading(false);
+        } catch (error) {
+          if (isCancelled) return;
+          const status = error?.response?.status;
+          const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503;
+          const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED';
+          if ((isRetryableError || isNetworkError) && retryCount < MAX_RETRIES) {
+            const delay = BASE_DELAY * Math.pow(1.4, retryCount);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            if (isCancelled) return;
+            await fetchDocument(retryCount + 1);
+            return;
+          }
+          setDocument(null);
+          setLoading(false);
+        }
+      };
+      fetchDocument();
+      return () => { isCancelled = true; };
+    }, [safeSlug]);
 
   // Re-fetch document when returning from idle/background tab
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document === null && !loading && slug && window.document.visibilityState === 'visible') {
-        // Document failed to load previously, retry now that the tab is active again
-        setLoading(true)
+      if (window.document.visibilityState === 'visible' && slug) {
+        setLoading(true);
         api.getDocument(slug)
           .then(doc => {
-            setDocument(doc)
-            setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
-            setCurrentFileIndex(0)
+            setDocument(doc);
+            setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }));
+            setCurrentFileIndex(0);
           })
           .catch(() => {
-            setDocument(null)
+            setDocument(null);
           })
           .finally(() => {
-            setLoading(false)
-          })
+            setLoading(false);
+          });
       }
-    }
-
-    window.document.addEventListener('visibilitychange', handleVisibilityChange)
+    };
+    window.document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      window.document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
-  }, [slug, document, loading])
+      window.document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [slug]);
 
   // Get all file URLs (from fileUrls array or legacy fileUrl)
   const getFileUrls = (): string[] => {
