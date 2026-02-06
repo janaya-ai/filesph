@@ -442,8 +442,14 @@ app.get('/api/embed/:slug', async (req, res) => {
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9735892690539350" crossorigin="anonymous"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .container { display: flex; flex-direction: column; height: 100vh; background: #f3f4f6; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f3f4f6; }
+    .main-container { min-height: 100vh; display: flex; flex-direction: column; }
+    .header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0; }
+    .header-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+    .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: #2563eb; font-weight: bold; font-size: 22px; }
+    .nav { display: flex; gap: 24px; }
+    .nav-link { color: #374151; text-decoration: none; font-weight: 500; font-size: 16px; transition: color 0.2s; }
+    .nav-link:hover { color: #2563eb; }
     .toolbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: #fff; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
     .toolbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .brand { color: #2563eb; font-weight: 700; font-size: 14px; text-decoration: none; white-space: nowrap; }
@@ -463,14 +469,40 @@ app.get('/api/embed/:slug', async (req, res) => {
     .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
     .viewer { flex: 1; min-height: 0; }
     .viewer iframe { width: 100%; height: 100%; border: none; }
+    .footer { background: #1f2937; color: #fff; padding: 32px 0; margin-top: 32px; }
+    .footer-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; text-align: center; }
+    .footer-logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+    .footer-logo span { font-size: 22px; font-weight: bold; color: #60a5fa; }
+    .footer-links { display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; }
+    .footer-link { color: #d1d5db; text-decoration: none; font-size: 15px; transition: color 0.2s; }
+    .footer-link:hover { color: #fff; }
+    .footer-disclaimer { color: #d1d5db; font-size: 13px; margin-bottom: 8px; }
+    .footer-copyright { color: #9ca3af; font-size: 13px; }
     @media (max-width: 640px) {
-      .hide-mobile { display: none; }
-      .doc-name { max-width: 120px; }
+      .header-inner, .footer-inner { padding: 12px 8px; }
+      .nav { gap: 12px; }
+      .nav-link { font-size: 14px; }
+      .footer-links { gap: 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="main-container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="${frontendUrl}" class="logo">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10v10H7z"/></svg>
+          <span>FilesPH</span>
+        </a>
+        <nav class="nav">
+          <a href="${frontendUrl}" class="nav-link">Home</a>
+          <a href="${frontendUrl}/about" class="nav-link">About</a>
+          <a href="${frontendUrl}/privacy-policy" class="nav-link">Privacy Policy</a>
+          <a href="${frontendUrl}/terms-of-service" class="nav-link">Terms</a>
+        </nav>
+      </div>
+    </header>
+
     <div class="toolbar">
       <div class="toolbar-left">
         <a href="${frontendUrl}" target="_blank" rel="noopener noreferrer" class="brand">filesph.com</a>
@@ -527,6 +559,26 @@ app.get('/api/embed/:slug', async (req, res) => {
         data-full-width-responsive="true"></ins>
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h10v10H7z"/></svg>
+          <span>FilesPH</span>
+        </div>
+        <div class="footer-links">
+          <a href="${frontendUrl}/about" class="footer-link">About</a>
+          <a href="${frontendUrl}/privacy-policy" class="footer-link">Privacy Policy</a>
+          <a href="${frontendUrl}/terms-of-service" class="footer-link">Terms</a>
+        </div>
+        <div class="footer-disclaimer">
+          FilesPH is an independent platform and is not affiliated with or operated by any government agency.
+        </div>
+        <div class="footer-copyright">
+          © 2026 FilesPH
+        </div>
+      </div>
+    </footer>
   </div>
 
   ${fileCount > 1 ? `
