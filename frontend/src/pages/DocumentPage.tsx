@@ -34,18 +34,18 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
       const MAX_RETRIES = 8
       const BASE_DELAY = 1000 // ms
       
+      // Only set loading on first attempt to avoid flashing
+      if (retryCount === 0) {
+        setLoading(true)
+      }
+      
+      if (!safeSlug) {
+        setDocument(null)
+        setLoading(false)
+        return
+      }
+      
       try {
-        // Only set loading on first attempt to avoid flashing
-        if (retryCount === 0) {
-          setLoading(true)
-        }
-        
-        if (!safeSlug) {
-          setDocument(null)
-          setLoading(false)
-          return
-        }
-        
         const doc = await api.getDocument(safeSlug)
         
         if (isCancelled) return
@@ -53,6 +53,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         setDocument(doc)
         setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
         setCurrentFileIndex(0) // Reset to first file
+        setLoading(false)
       } catch (error: any) {
         if (isCancelled) return
         
@@ -69,14 +70,14 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
           await new Promise(resolve => setTimeout(resolve, delay))
           
           if (isCancelled) return
-          return fetchDocument(retryCount + 1)
+          // Await the retry so loading stays true until all retries complete
+          await fetchDocument(retryCount + 1)
+          return
         }
         
+        // All retries exhausted or non-retryable error
         setDocument(null)
-      } finally {
-        if (!isCancelled) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
@@ -200,10 +201,19 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">Document Not Found</h1>
-          <p className="text-gray-600 mb-8">The document you're looking for doesn't exist.</p>
-          <Link to="/" className="text-blue-600 hover:underline">
-            Return to Home
-          </Link>
+          <p className="text-gray-600 mb-8">The document you're looking for doesn't exist or is temporarily unavailable.</p>
+          {embedded ? (
+            <button
+              onClick={() => window.location.reload()}
+              className="text-blue-600 hover:underline"
+            >
+              Try Again
+            </button>
+          ) : (
+            <Link to="/" className="text-blue-600 hover:underline">
+              Return to Home
+            </Link>
+          )}
         </div>
       </div>
     )

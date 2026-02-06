@@ -1,0 +1,4 @@
+# Allow iframe embedding for embed routes
+/embed/*
+  Content-Security-Policy: frame-ancestors *
+  X-Frame-Options: ALLOWALL
