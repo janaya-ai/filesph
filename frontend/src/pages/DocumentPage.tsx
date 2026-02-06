@@ -30,8 +30,8 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
     let isCancelled = false
     
     const fetchDocument = async (retryCount = 0) => {
-      const MAX_RETRIES = 5
-      const BASE_DELAY = 800 // ms - longer for mobile networks
+      const MAX_RETRIES = 8
+      const BASE_DELAY = 1000 // ms
       
       try {
         // Only set loading on first attempt to avoid flashing
@@ -57,7 +57,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
         
         console.error(`Error fetching document (attempt ${retryCount + 1}):`, error)
         
-        // Retry on 404, 500, or network errors - server may need time to sync
+        // Retry on 404, 500, or network errors - server may need time to sync or wake from cold start
         const status = error?.response?.status
         const isRetryableError = status === 404 || status === 500 || status === 502 || status === 503
         const isNetworkError = !error?.response && error?.code !== 'ERR_CANCELED'
@@ -85,6 +85,33 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
       isCancelled = true
     }
   }, [slug])
+
+  // Re-fetch document when returning from idle/background tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document === null && !loading && slug && window.document.visibilityState === 'visible') {
+        // Document failed to load previously, retry now that the tab is active again
+        setLoading(true)
+        api.getDocument(slug)
+          .then(doc => {
+            setDocument(doc)
+            setViewerState(prev => ({ ...prev, totalPages: doc.totalPages }))
+            setCurrentFileIndex(0)
+          })
+          .catch(() => {
+            setDocument(null)
+          })
+          .finally(() => {
+            setLoading(false)
+          })
+      }
+    }
+
+    window.document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [slug, document, loading])
 
   // Get all file URLs (from fileUrls array or legacy fileUrl)
   const getFileUrls = (): string[] => {
