@@ -5,17 +5,34 @@ const envApiUrl = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/$/, '')
   : ''
 
-const getDefaultApiOrigin = () => {
-  if (typeof window === 'undefined') return ''
+/**
+ * Determine API base URL.
+ *
+ * On filesph.com (including embeds in iframes on other sites) and localhost,
+ * we use RELATIVE /api paths so requests go through the same-origin proxy:
+ *   - Local dev  → Vite proxy (vite.config.ts) → http://localhost:3001
+ *   - Production → Render _redirects proxy     → filesph-backend.onrender.com
+ *
+ * This avoids CORS issues and Render cold-start failures that occur when the
+ * frontend talks directly cross-origin to the backend service.
+ *
+ * VITE_API_URL is only used as a fallback for non-standard deployments.
+ */
+const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') return envApiUrl || ''
+
   const host = window.location.hostname
   const isLocal = host === 'localhost' || host === '127.0.0.1'
   const isFilesph = host === 'filesph.com' || host.endsWith('.filesph.com')
 
-  if (isLocal || isFilesph) return window.location.origin
-  return 'https://filesph.com'
+  // Local dev and filesph.com: use relative paths (proxy handles routing)
+  if (isLocal || isFilesph) return ''
+
+  // Other deployments: use VITE_API_URL if available, else point to filesph.com
+  return envApiUrl || 'https://filesph.com'
 }
 
-export const API_BASE_URL = envApiUrl || getDefaultApiOrigin()
+export const API_BASE_URL = getApiBaseUrl()
 export const API_BASE = API_BASE_URL
   ? `${API_BASE_URL.replace(/\/$/, '')}/api`
   : '/api'
