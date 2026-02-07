@@ -497,7 +497,7 @@ app.get('/api/embed/:slug', async (req, res) => {
     <div class="viewer">
       <iframe id="pdfFrame" class="viewer-iframe" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${docName}" allow="fullscreen"></iframe>
       <div class="view-btn-wrap">
-        <a class="view-btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View on filesph.com</a>
+        <a class="view-btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View or Download on filesph.com</a>
       </div>
     </div>
 
@@ -511,16 +511,7 @@ app.get('/api/embed/:slug', async (req, res) => {
       <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
     </div>
 
-    ${fileCount > 1 ? `
-    <script>
-      let current = 0;
-      const total = ${fileCount};
-      function navigate(dir) {
-        current = Math.max(0, Math.min(total - 1, current + dir));
-        document.getElementById('pdfFrame').src = '/api/pdf/${encodeURIComponent(slug)}?file=' + current;
-      }
-    </script>
-    ` : ''}
+    <!-- No download/print/save controls in embed -->
   </div>
 </body>
 </html>`
