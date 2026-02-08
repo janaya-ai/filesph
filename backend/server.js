@@ -525,6 +525,60 @@ app.get('/api/embed/:slug', async (req, res) => {
   }
 })
 
+// Minimal responsive embed preview — optimized for small iframes
+app.get('/api/embed-preview/:slug', async (req, res) => {
+  const { slug } = req.params
+  try {
+    const data = await readData()
+    const document = data.documents.find(doc => doc.id === slug || doc.slug === slug)
+    if (!document) {
+      return res.status(404).send('<!doctype html><html><body style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Document not found</body></html>')
+    }
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
+    const title = (document.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} — preview</title>
+<style>
+  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fff;color:#111}
+  .card{max-width:820px;margin:12px auto;border:1px solid #e6e6e6;border-radius:8px;overflow:hidden;box-shadow:0 1px 6px rgba(16,24,40,0.04)}
+  .head{padding:12px 16px;background:#fafafa;border-bottom:1px solid #eee}
+  .title{font-size:15px;font-weight:600;color:#0b1220}
+  .iframe-wrap{background:#000}
+  iframe{width:100%;height:360px;border:0;display:block}
+  .cta{display:block;padding:12px 16px;text-align:center;background:#fff}
+  .btn{display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600}
+  @media (max-width:640px){ iframe{height:260px} .card{margin:6px} }
+</style>
+</head>
+<body>
+  <div class="card" role="region" aria-label="${title} preview">
+    <div class="head"><div class="title">${title}</div></div>
+    <div class="iframe-wrap">
+      <iframe src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${title}" loading="lazy" allow="fullscreen"></iframe>
+    </div>
+    <div class="cta">
+      <a class="btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer">Open on FilesPH — View / Download</a>
+    </div>
+  </div>
+</body>
+</html>`
+
+    // Short cache to reduce backend load for frequent previews
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=60')
+    res.send(html)
+  } catch (err) {
+    console.error('embed-preview error:', err)
+    res.status(500).send('Preview failed')
+  }
+})
+
 // Download single file from R2 (proxied through backend)
 app.get('/api/download/:docId/:fileIndex?', async (req, res) => {
   const { docId, fileIndex } = req.params
