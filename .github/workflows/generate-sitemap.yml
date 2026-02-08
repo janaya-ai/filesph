@@ -1,0 +1,59 @@
+name: Generate Sitemap
+
+on:
+  # Run on push to main branch
+  push:
+    branches:
+      - main
+  
+  # Run daily at 02:00 UTC
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-sitemap:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Generate sitemap
+        run: |
+          python scripts/generate_sitemap.py --base-url https://filesph.com --max-pages 5000 --delay 0.5 --output frontend/public/sitemap.xml
+        env:
+          BASE_URL: https://filesph.com
+          MAX_PAGES: 5000
+          DELAY: 0.5
+          OUTPUT: frontend/public/sitemap.xml
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code frontend/public/sitemap.xml || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push if changed
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/sitemap.xml
+          git commit -m "chore: update sitemap.xml [skip ci]"
+          git push

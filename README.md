@@ -301,6 +301,75 @@ taskkill /PID <PID> /F
 - **Production**: Ensure `VITE_API_URL` is set correctly during build
 - **Both**: Ensure CORS is enabled in backend
 
+## 🗺️ Automatic Sitemap Generation
+
+This project includes an automatic sitemap generator that crawls the live website and generates a `sitemap.xml` file.
+
+### How It Works
+
+1. **Python Crawler Script** (`scripts/generate_sitemap.py`):
+   - Crawls the website starting from the configured BASE_URL
+   - Discovers internal HTML pages, PDFs, and images
+   - Respects same-origin restrictions (only crawls filesph.com)
+   - Records last modification dates from HTTP headers
+   - Generates a valid sitemap.xml following sitemaps.org schema
+   - Supports sitemap index files for sites with >50,000 URLs
+
+2. **GitHub Actions Workflow** (`.github/workflows/generate-sitemap.yml`):
+   - Runs automatically on push to main branch
+   - Runs daily at 02:00 UTC via scheduled cron job
+   - Can be triggered manually via workflow dispatch
+   - Commits and pushes updated sitemap.xml only if content changes
+
+### Configuration
+
+The sitemap generator can be configured via environment variables or CLI flags:
+
+- **BASE_URL**: Starting URL to crawl (default: `https://filesph.com`)
+- **MAX_PAGES**: Maximum number of pages to crawl (default: `5000`)
+- **DELAY**: Crawl delay in seconds between requests (default: `0.5`)
+- **OUTPUT**: Output file path (default: `public/sitemap.xml`)
+
+### Running Locally
+
+To generate the sitemap locally:
+
+```bash
+# Install dependencies
+pip install -r scripts/requirements.txt
+
+# Run with defaults
+python scripts/generate_sitemap.py
+
+# Run with custom configuration
+python scripts/generate_sitemap.py --base-url https://filesph.com --max-pages 1000 --delay 0.5
+
+# Run in dry-run mode (test without saving)
+python scripts/generate_sitemap.py --dry-run
+```
+
+### Customizing the Schedule
+
+To change the automatic generation schedule, edit `.github/workflows/generate-sitemap.yml`:
+
+```yaml
+schedule:
+  - cron: '0 2 * * *'  # Daily at 02:00 UTC (change as needed)
+```
+
+Common cron schedules:
+- Every 6 hours: `0 */6 * * *`
+- Twice daily: `0 0,12 * * *`
+- Weekly (Sunday at 2am): `0 2 * * 0`
+
+### Files
+
+- `scripts/generate_sitemap.py` - Python crawler and sitemap generator
+- `scripts/requirements.txt` - Python dependencies (requests, beautifulsoup4)
+- `.github/workflows/generate-sitemap.yml` - GitHub Actions workflow
+- `frontend/public/sitemap.xml` - Generated sitemap file
+- `frontend/public/robots.txt` - Robots.txt with sitemap reference
+
 ## 📝 License
 
 MIT License - feel free to use this project for personal or commercial purposes.
