@@ -301,6 +301,75 @@ taskkill /PID <PID> /F
 - **Production**: Ensure `VITE_API_URL` is set correctly during build
 - **Both**: Ensure CORS is enabled in backend
 
+## 🗺️ Automatic Sitemap Generation
+
+This project includes an automated sitemap generator that keeps `sitemap.xml` up-to-date with all public pages and documents.
+
+### How It Works
+
+The sitemap generator is a Python script that:
+- Crawls the live website starting from the configured BASE_URL
+- Discovers HTML pages and static assets (PDFs, images)
+- Generates a standards-compliant sitemap.xml file
+- Runs automatically via GitHub Actions (daily at 02:00 UTC and on every push to main)
+
+### Configuration
+
+The generator can be configured via environment variables or command-line flags:
+
+**Environment Variables:**
+- `BASE_URL` - Base URL to crawl (default: `https://filesph.com`)
+- `MAX_PAGES` - Maximum pages to crawl (default: `5000`)
+- `DELAY` - Delay between requests in seconds (default: `0.5`)
+- `OUTPUT` - Output file path (default: `public/sitemap.xml`)
+
+**Command-line Usage:**
+```bash
+# Install dependencies first
+pip install -r scripts/requirements.txt
+
+# Generate sitemap with default settings
+python scripts/generate_sitemap.py
+
+# Generate with custom settings
+python scripts/generate_sitemap.py --base-url https://filesph.com --max-pages 1000 --delay 1.0
+
+# Dry run (don't write files)
+python scripts/generate_sitemap.py --dry-run
+
+# Verbose logging
+python scripts/generate_sitemap.py --verbose
+```
+
+### Customizing the Schedule
+
+To change when the sitemap is automatically generated, edit `.github/workflows/generate-sitemap.yml`:
+
+```yaml
+schedule:
+  # Run daily at 02:00 UTC
+  - cron: '0 2 * * *'
+```
+
+You can also trigger the workflow manually from the GitHub Actions tab with custom parameters.
+
+### Features
+
+- **Same-origin only**: Only crawls pages on the configured domain
+- **Respects politeness**: Configurable crawl delay between requests
+- **Scalable**: Automatically creates sitemap index files for sites with >50,000 URLs
+- **Deterministic**: Sorted URLs ensure changes only occur when content changes
+- **Metadata-aware**: Includes lastmod timestamps from HTTP headers when available
+- **Idempotent**: Safe to run multiple times without duplicates
+
+### Files
+
+- `scripts/generate_sitemap.py` - Main generator script
+- `scripts/requirements.txt` - Python dependencies
+- `.github/workflows/generate-sitemap.yml` - Automation workflow
+- `public/sitemap.xml` - Generated sitemap file
+- `public/robots.txt` - References the sitemap
+
 ## 📝 License
 
 MIT License - feel free to use this project for personal or commercial purposes.
