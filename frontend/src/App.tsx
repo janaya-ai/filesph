@@ -5,6 +5,7 @@ import Admin from './pages/Admin'
 import Login from './pages/Login'
 import DocumentPage from './pages/DocumentPage'
 import EmbedViewer from './pages/EmbedViewer'
+import EmbedPreview from './pages/EmbedPreview'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
 import About from './pages/About'
@@ -35,6 +36,7 @@ function App() {
         <Route path="/view/:docId" element={<Viewer />} />
         <Route path="/d/:slug" element={<DocumentPage />} />
         <Route path="/embed/:slug" element={<EmbedViewer />} />
+        <Route path="/preview/:slug" element={<EmbedPreview />} />
         <Route path="/agency/:slug" element={<AgencyPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/admin" element={<Admin />} />
