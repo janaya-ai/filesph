@@ -46,9 +46,11 @@ export default function EmbedPreview() {
       } catch (err: any) {
         if (cancelled) return
         const status = err?.response?.status
-        const isRetryable = !status || status === 404 || status >= 500
+        // Retry on network errors (!status) or server errors (5xx), but not on 404
+        const isRetryable = !status || status >= 500
         if (isRetryable && retries < 5) {
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(1.5, retries)))
+          // Start with 500ms delay, then exponentially increase
+          await new Promise(r => setTimeout(r, 500 * Math.pow(1.5, retries)))
           if (!cancelled) await fetchDoc(retries + 1)
           return
         }
