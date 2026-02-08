@@ -683,14 +683,14 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
               
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
                 <code className="text-sm text-gray-800 break-all">
-                  {`<iframe src="${window.location.origin}/api/embed/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`}
+                  {`<iframe src="${window.location.origin}/api/embed-preview/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`}
                 </code>
               </div>
               
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `<iframe src="${window.location.origin}/api/embed/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
+                    `<iframe src="${window.location.origin}/api/embed-preview/${encodeURIComponent(document?.slug || '')}" width="100%" height="600" frameborder="0" allowfullscreen></iframe>`
                   )
                   alert('Embed code copied to clipboard!')
                 }}
