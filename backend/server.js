@@ -526,58 +526,335 @@ app.get('/api/embed/:slug', async (req, res) => {
 })
 
 // Minimal responsive embed preview — optimized for small iframes
+// SEO-safe, mobile-first design with clean spacing and fast loading
 app.get('/api/embed-preview/:slug', async (req, res) => {
   const { slug } = req.params
   try {
     const data = await readData()
     const document = data.documents.find(doc => doc.id === slug || doc.slug === slug)
     if (!document) {
-      return res.status(404).send('<!doctype html><html><body style="font-family:sans-serif;padding:24px;text-align:center;color:#666">Document not found</body></html>')
+      return res.status(404).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Not Found — FilesPH</title>
+  <style>
+    html, body { background: #fff; margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; }
+    .error { text-align: center; color: #666; padding: 24px; }
+    .error h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
+    .error p { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="error">
+    <h1>Document Not Found</h1>
+    <p>The document you're looking for doesn't exist or has been removed.</p>
+  </div>
+</body>
+</html>`)
     }
 
     const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
     const title = (document.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const description = (document.description || `View and download ${document.name} on FilesPH`).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const pageUrl = `${frontendUrl}/d/${encodeURIComponent(document.slug || slug)}`
+    const thumbnailUrl = document.thumbnailUrl || `${frontendUrl}/placeholder.jpg`
+
+    // Track embedded view
+    document.views = (document.views || 0) + 1
+    writeData(data).catch(() => {})
+
+    // JSON-LD structured data for SEO
+    const structuredData = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'DigitalDocument',
+      name: document.name,
+      description: document.description || `View and download ${document.name}`,
+      url: pageUrl,
+      datePublished: document.createdAt,
+      thumbnailUrl: thumbnailUrl,
+      keywords: document.tags?.join(', '),
+      genre: document.categories?.join(', '),
+      numberOfPages: document.totalPages,
+      publisher: {
+        '@type': 'Organization',
+        name: 'FilesPH',
+        url: 'https://filesph.com'
+      }
+    })
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
   <title>${title} — FilesPH Document Preview</title>
-  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="${description}">
+  <meta name="keywords" content="${(document.tags || document.categories || []).join(', ')}">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="${title}">
+  <meta property="og:description" content="${description}">
+  <meta property="og:url" content="${pageUrl}">
+  <meta property="og:image" content="${thumbnailUrl}">
+  <meta property="og:site_name" content="FilesPH">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${title}">
+  <meta name="twitter:description" content="${description}">
+  <meta name="twitter:image" content="${thumbnailUrl}">
+  
+  <!-- Canonical URL -->
+  <link rel="canonical" href="${pageUrl}">
+  
+  <!-- Structured Data -->
+  <script type="application/ld+json">${structuredData}</script>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="https://filesph.com/favicon.png" type="image/png">
+  
   <style>
-    html, body { background: #fff; margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
-    .container { max-width: 800px; margin: 40px auto 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(16,24,40,0.13); padding: 0 0 36px 0; display: flex; flex-direction: column; }
-    .header { display: flex; align-items: center; padding: 20px 28px 8px 28px; }
-    .logo { width: 24px; height: 24px; margin-right: 10px; }
-    .header-title { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; color: #2563eb; }
-    .doc-title { text-align: center; font-size: 21px; font-weight: 700; margin: 16px 0 8px 0; color: #222; }
-    .iframe-wrap { width: 100%; display: flex; justify-content: center; }
-    .doc-iframe { width: 100%; max-width: 760px; height: 500px; border: 1.5px solid #e6e6e6; border-radius: 8px; background: #fafafa; box-shadow: 0 2px 12px rgba(16,24,40,0.07); }
-    @media (max-width: 900px) { .container { max-width: 98vw; } .doc-iframe { max-width: 98vw; height: 340px; } }
-    @media (max-width: 640px) { .header { padding: 12px 8px 4px 8px; } .doc-title { font-size: 16px; } .doc-iframe { height: 180px; } .container { margin: 12px auto 0 auto; } }
-    .cta-section { margin: 28px 0 0 0; text-align: center; }
-    .cta-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 17px; padding: 14px 32px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
-    .cta-btn:hover { background: #1d4ed8; }
-    .helper-text { font-size: 13px; color: #888; margin-top: 7px; }
-    .footer { text-align: center; font-size: 12px; color: #bbb; margin-top: 22px; letter-spacing: 0.04em; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      background: #fff;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      color: #1a1a1a;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Centered container with soft shadow card */
+    .container {
+      max-width: 800px;
+      margin: 32px auto;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+      padding: 24px 28px 32px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Header with logo */
+    .header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .logo {
+      width: 28px;
+      height: 28px;
+      margin-right: 12px;
+      border-radius: 4px;
+    }
+    .header-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #2563eb;
+      letter-spacing: -0.01em;
+    }
+    
+    /* Document title */
+    .doc-title {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 20px 0;
+      color: #1a1a1a;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    
+    /* PDF iframe wrapper */
+    .iframe-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 0 4px;
+    }
+    .doc-iframe {
+      width: 100%;
+      max-width: 760px;
+      height: 520px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fafafa;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* CTA Section */
+    .cta-section {
+      margin-top: 28px;
+      text-align: center;
+    }
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 600;
+      font-size: 16px;
+      padding: 14px 28px;
+      border-radius: 10px;
+      text-decoration: none;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+      transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+      gap: 8px;
+    }
+    .cta-btn:hover {
+      background: #1d4ed8;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      transform: translateY(-1px);
+    }
+    .cta-btn:active {
+      transform: translateY(0);
+    }
+    .cta-btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .helper-text {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 12px;
+      line-height: 1.4;
+    }
+    
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 24px;
+      letter-spacing: 0.02em;
+    }
+    .footer a {
+      color: #9ca3af;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+    .footer a:hover {
+      color: #2563eb;
+    }
+    
+    /* Responsive - Tablet */
+    @media (max-width: 900px) {
+      .container {
+        max-width: calc(100% - 32px);
+        margin: 24px 16px;
+        padding: 20px 20px 28px;
+      }
+      .doc-iframe {
+        height: 450px;
+      }
+    }
+    
+    /* Responsive - Mobile */
+    @media (max-width: 640px) {
+      .container {
+        max-width: 100%;
+        margin: 12px 8px;
+        padding: 16px 16px 24px;
+        border-radius: 12px;
+      }
+      .header {
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+      }
+      .logo {
+        width: 24px;
+        height: 24px;
+        margin-right: 10px;
+      }
+      .header-title {
+        font-size: 14px;
+      }
+      .doc-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+      }
+      .doc-iframe {
+        height: 380px;
+        border-radius: 8px;
+      }
+      .cta-section {
+        margin-top: 20px;
+      }
+      .cta-btn {
+        width: 100%;
+        font-size: 15px;
+        padding: 12px 20px;
+      }
+      .helper-text {
+        font-size: 12px;
+        margin-top: 10px;
+        padding: 0 8px;
+      }
+      .footer {
+        margin-top: 20px;
+      }
+    }
+    
+    /* Very small screens */
+    @media (max-width: 400px) {
+      .container {
+        margin: 8px 4px;
+        padding: 12px 12px 20px;
+      }
+      .doc-iframe {
+        height: 320px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <img class="logo" src="https://filesph.com/favicon.png" alt="FilesPH logo" loading="lazy">
+    <header class="header">
+      <img class="logo" src="https://filesph.com/favicon.png" alt="FilesPH" width="28" height="28">
       <span class="header-title">FilesPH Document Preview</span>
-    </div>
-    <div class="doc-title">${title}</div>
+    </header>
+    
+    <h1 class="doc-title">${title}</h1>
+    
     <div class="iframe-wrap">
-      <iframe class="doc-iframe" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${title}" loading="lazy" allow="fullscreen"></iframe>
+      <iframe 
+        class="doc-iframe" 
+        src="/api/pdf/${encodeURIComponent(document.slug || slug)}?file=0" 
+        title="${title}"
+        loading="lazy"
+        allow="fullscreen"
+      ></iframe>
     </div>
+    
     <div class="cta-section">
-      <a class="cta-btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer">View Full Document on FilesPH &rarr;</a>
-      <div class="helper-text">Open the full document to view all pages and download the file.</div>
+      <a 
+        class="cta-btn" 
+        href="${pageUrl}" 
+        target="_blank" 
+        rel="noopener noreferrer"
+      >
+        View Full Document on FilesPH
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </a>
+      <p class="helper-text">Open the full document to view all pages and download the file.</p>
     </div>
-    <div class="footer">filesph.com</div>
+    
+    <footer class="footer">
+      <a href="https://filesph.com" target="_blank" rel="noopener noreferrer">filesph.com</a>
+    </footer>
   </div>
 </body>
 </html>`
@@ -588,7 +865,26 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
     res.send(html)
   } catch (err) {
     console.error('embed-preview error:', err)
-    res.status(500).send('Preview failed')
+    res.status(500).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Error — FilesPH</title>
+  <style>
+    html, body { background: #fff; margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; }
+    .error { text-align: center; color: #666; padding: 24px; }
+    .error h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
+    .error p { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="error">
+    <h1>Something went wrong</h1>
+    <p>We couldn't load the document preview. Please try again later.</p>
+  </div>
+</body>
+</html>`)
   }
 })
 
