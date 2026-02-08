@@ -1,0 +1,39 @@
+name: Test Sitemap Generator
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/generate_sitemap.py'
+      - 'scripts/requirements.txt'
+      - '.github/workflows/test-sitemap.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/generate_sitemap.py'
+      - 'scripts/requirements.txt'
+
+jobs:
+  test-sitemap-generator:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Test script runs without errors (dry-run)
+        run: |
+          python scripts/generate_sitemap.py --dry-run --base-url https://example.com --max-pages 5 --delay 0.1
+      
+      - name: Test script help output
+        run: |
+          python scripts/generate_sitemap.py --help
