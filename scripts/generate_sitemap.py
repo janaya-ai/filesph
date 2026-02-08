@@ -36,6 +36,7 @@ import logging
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
+from email.utils import parsedate_to_datetime
 import xml.etree.ElementTree as ET
 
 try:
@@ -187,9 +188,8 @@ def crawl_site(base_url, max_pages, delay):
         lastmod = None
         if 'Last-Modified' in response.headers:
             try:
-                # Parse Last-Modified header and convert to W3C datetime format
-                last_modified_str = response.headers['Last-Modified']
-                dt = datetime.strptime(last_modified_str, '%a, %d %b %Y %H:%M:%S %Z')
+                # Parse Last-Modified header using email.utils for robust timezone handling
+                dt = parsedate_to_datetime(response.headers['Last-Modified'])
                 lastmod = dt.strftime('%Y-%m-%dT%H:%M:%S+00:00')
             except Exception as e:
                 logger.debug(f"Failed to parse Last-Modified header: {e}")

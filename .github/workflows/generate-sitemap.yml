@@ -62,5 +62,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add frontend/public/sitemap*.xml
+          # [skip ci] prevents this commit from triggering the workflow again
           git commit -m "chore: update sitemap.xml [skip ci]"
           git push
