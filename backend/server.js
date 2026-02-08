@@ -547,20 +547,20 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
   <meta name="robots" content="noindex, nofollow">
   <style>
     html, body { background: #fff; margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
-    .container { max-width: 800px; margin: 32px auto 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 16px rgba(16,24,40,0.08); padding: 0 0 32px 0; display: flex; flex-direction: column; }
-    .header { display: flex; align-items: center; padding: 24px 32px 12px 32px; }
-    .logo { width: 32px; height: 32px; margin-right: 12px; }
-    .header-title { font-size: 18px; font-weight: 600; letter-spacing: 0.02em; }
-    .doc-title { text-align: center; font-size: 22px; font-weight: 700; margin: 18px 0 8px 0; color: #2563eb; }
+    .container { max-width: 800px; margin: 40px auto 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(16,24,40,0.13); padding: 0 0 36px 0; display: flex; flex-direction: column; }
+    .header { display: flex; align-items: center; padding: 20px 28px 8px 28px; }
+    .logo { width: 24px; height: 24px; margin-right: 10px; }
+    .header-title { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; color: #2563eb; }
+    .doc-title { text-align: center; font-size: 21px; font-weight: 700; margin: 16px 0 8px 0; color: #222; }
     .iframe-wrap { width: 100%; display: flex; justify-content: center; }
-    .doc-iframe { width: 100%; max-width: 760px; height: 520px; border: 1.5px solid #e6e6e6; border-radius: 8px; background: #fafafa; box-shadow: 0 1px 6px rgba(16,24,40,0.04); }
-    @media (max-width: 900px) { .container { max-width: 98vw; } .doc-iframe { max-width: 98vw; height: 400px; } }
-    @media (max-width: 640px) { .header { padding: 16px 12px 8px 12px; } .doc-title { font-size: 17px; } .doc-iframe { height: 260px; } }
-    .cta-section { margin: 32px 0 0 0; text-align: center; }
-    .cta-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 18px; padding: 16px 36px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
+    .doc-iframe { width: 100%; max-width: 760px; height: 500px; border: 1.5px solid #e6e6e6; border-radius: 8px; background: #fafafa; box-shadow: 0 2px 12px rgba(16,24,40,0.07); }
+    @media (max-width: 900px) { .container { max-width: 98vw; } .doc-iframe { max-width: 98vw; height: 340px; } }
+    @media (max-width: 640px) { .header { padding: 12px 8px 4px 8px; } .doc-title { font-size: 16px; } .doc-iframe { height: 180px; } .container { margin: 12px auto 0 auto; } }
+    .cta-section { margin: 28px 0 0 0; text-align: center; }
+    .cta-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 17px; padding: 14px 32px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
     .cta-btn:hover { background: #1d4ed8; }
-    .helper-text { font-size: 14px; color: #666; margin-top: 8px; }
-    .footer { text-align: center; font-size: 13px; color: #bbb; margin-top: 24px; }
+    .helper-text { font-size: 13px; color: #888; margin-top: 7px; }
+    .footer { text-align: center; font-size: 12px; color: #bbb; margin-top: 22px; letter-spacing: 0.04em; }
   </style>
 </head>
 <body>
