@@ -26,6 +26,10 @@ const storagePath = process.env.STORAGE_PATH || __dirname
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
+// Production URL for "View Full Document" links in embeds
+// Always use filesph.com regardless of FRONTEND_URL env var
+const PRODUCTION_URL = 'https://filesph.com'
+
 // ========================================
 // Cloudflare R2 Configuration
 // ========================================
@@ -426,10 +430,12 @@ app.get('/api/embed/:slug', async (req, res) => {
       ? document.fileUrls.length
       : document.fileUrl ? 1 : (document.files ? document.files.length : 0)
 
-    // Always use filesph.com for the "View Full Document" link in production
-    const productionUrl = 'https://filesph.com'
     const docName = document.name.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const thumbnailUrl = document.thumbnailUrl || `${productionUrl}/placeholder.jpg`
+    // Sanitize thumbnail URL to prevent XSS - only allow http(s) URLs
+    const rawThumbnailUrl = document.thumbnailUrl || `${PRODUCTION_URL}/placeholder.jpg`
+    const thumbnailUrl = /^https?:\/\//i.test(rawThumbnailUrl) 
+      ? rawThumbnailUrl.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      : `${PRODUCTION_URL}/placeholder.jpg`
 
     // Track embedded view
     document.views = (document.views || 0) + 1
@@ -511,17 +517,17 @@ app.get('/api/embed/:slug', async (req, res) => {
       
       <!-- Mobile preview fallback (hidden by default, shown via JS on mobile) -->
       <div id="mobilePreview" class="mobile-preview">
-        <img src="${thumbnailUrl}" alt="${docName}" onerror="this.src='${productionUrl}/placeholder.jpg'">
+        <img src="${thumbnailUrl}" alt="${docName}" onerror="this.src='${PRODUCTION_URL}/placeholder.jpg'">
         <h2>${docName}</h2>
         <p>Tap the button below to view the full document</p>
-        <a class="view-btn" href="${productionUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">
+        <a class="view-btn" href="${PRODUCTION_URL}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
           View Full Document
         </a>
       </div>
       
       <div class="view-btn-wrap" id="desktopBtn">
-        <a class="view-btn" href="${productionUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View or Download on filesph.com</a>
+        <a class="view-btn" href="${PRODUCTION_URL}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View or Download on filesph.com</a>
       </div>
     </div>
 
@@ -594,12 +600,14 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
 </html>`)
     }
 
-    // Always use filesph.com for the "View Full Document" link in production
-    const productionUrl = 'https://filesph.com'
     const title = (document.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     const description = (document.description || `View and download ${document.name} on FilesPH`).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const pageUrl = `${productionUrl}/d/${encodeURIComponent(document.slug || slug)}`
-    const thumbnailUrl = document.thumbnailUrl || `${productionUrl}/placeholder.jpg`
+    const pageUrl = `${PRODUCTION_URL}/d/${encodeURIComponent(document.slug || slug)}`
+    // Sanitize thumbnail URL to prevent XSS - only allow http(s) URLs
+    const rawThumbnailUrl = document.thumbnailUrl || `${PRODUCTION_URL}/placeholder.jpg`
+    const thumbnailUrl = /^https?:\/\//i.test(rawThumbnailUrl) 
+      ? rawThumbnailUrl.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      : `${PRODUCTION_URL}/placeholder.jpg`
 
     // Track embedded view
     document.views = (document.views || 0) + 1
@@ -901,7 +909,7 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
     
     <!-- Mobile preview fallback - shown via JS on mobile devices -->
     <div id="mobilePreview" class="mobile-preview">
-      <img src="${thumbnailUrl}" alt="${title}" onerror="this.src='${productionUrl}/placeholder.jpg'">
+      <img src="${thumbnailUrl}" alt="${title}" onerror="this.src='${PRODUCTION_URL}/placeholder.jpg'">
       <p>Tap the button below to view the full document</p>
     </div>
     
