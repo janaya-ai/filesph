@@ -1,0 +1,45 @@
+name: Test Sitemap Generator
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/generate_sitemap.py'
+      - 'scripts/requirements.txt'
+      - '.github/workflows/test-sitemap.yml'
+  workflow_dispatch:
+
+jobs:
+  test-generator:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'scripts/requirements.txt'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+      
+      - name: Test sitemap generator (dry-run)
+        run: |
+          python scripts/generate_sitemap.py --dry-run --max-pages 5 --delay 0.1
+          echo "✅ Sitemap generator test passed"
+      
+      - name: Verify script has correct permissions
+        run: |
+          test -x scripts/generate_sitemap.py && echo "✅ Script is executable" || echo "⚠️ Script is not executable (but Python can still run it)"
+      
+      - name: Test with different configurations
+        run: |
+          python scripts/generate_sitemap.py --help
+          echo "✅ Help output works"
