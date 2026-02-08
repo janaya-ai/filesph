@@ -426,8 +426,10 @@ app.get('/api/embed/:slug', async (req, res) => {
       ? document.fileUrls.length
       : document.fileUrl ? 1 : (document.files ? document.files.length : 0)
 
-    const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
+    // Always use filesph.com for the "View Full Document" link in production
+    const productionUrl = 'https://filesph.com'
     const docName = document.name.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const thumbnailUrl = document.thumbnailUrl || `${productionUrl}/placeholder.jpg`
 
     // Track embedded view
     document.views = (document.views || 0) + 1
@@ -446,9 +448,9 @@ app.get('/api/embed/:slug', async (req, res) => {
     .embed-container { min-height: 100vh; display: flex; flex-direction: column; }
     .ad-slot { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 8px 0; text-align: center; flex-shrink: 0; min-height: 80px; }
     .ad-slot-bottom { border-bottom: none; border-top: 1px solid #e5e7eb; }
-    .viewer { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .viewer { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
     .viewer-iframe {
-      width: 100vw;
+      width: 100%;
       max-width: 900px;
       height: 75vh;
       min-height: 320px;
@@ -461,21 +463,30 @@ app.get('/api/embed/:slug', async (req, res) => {
     .view-btn-wrap { margin: 18px 0 0 0; display: flex; justify-content: center; }
     .view-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 16px; padding: 12px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
     .view-btn:hover { background: #1d4ed8; }
+    
+    /* Mobile preview styles (shown when PDF iframe fails on mobile) */
+    .mobile-preview { display: none; width: 100%; max-width: 400px; text-align: center; padding: 24px; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .mobile-preview img { width: 100%; max-width: 280px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; }
+    .mobile-preview h2 { font-size: 18px; color: #1a1a1a; margin-bottom: 8px; line-height: 1.3; }
+    .mobile-preview p { font-size: 14px; color: #666; margin-bottom: 16px; }
+    .mobile-preview .view-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    
     @media (max-width: 900px) {
       .viewer-iframe {
-        max-width: 100vw;
+        max-width: 100%;
         height: 60vh;
         min-height: 180px;
-        border-radius: 0;
+        border-radius: 8px;
       }
     }
     @media (max-width: 640px) {
       .ad-slot, .ad-slot-bottom { min-height: 60px; padding: 4px 0; }
+      .viewer { padding: 12px; }
       .viewer-iframe {
-        width: 100vw;
-        height: 60vh;
+        width: 100%;
+        height: 55vh;
         min-height: 140px;
-        border-radius: 0;
+        border-radius: 8px;
         border-width: 2px;
       }
       .view-btn { font-size: 15px; padding: 10px 16px; }
@@ -495,9 +506,22 @@ app.get('/api/embed/:slug', async (req, res) => {
     </div>
 
     <div class="viewer">
+      <!-- PDF iframe for desktop -->
       <iframe id="pdfFrame" class="viewer-iframe" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${docName}" allow="fullscreen"></iframe>
-      <div class="view-btn-wrap">
-        <a class="view-btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View or Download on filesph.com</a>
+      
+      <!-- Mobile preview fallback (hidden by default, shown via JS on mobile) -->
+      <div id="mobilePreview" class="mobile-preview">
+        <img src="${thumbnailUrl}" alt="${docName}" onerror="this.src='${productionUrl}/placeholder.jpg'">
+        <h2>${docName}</h2>
+        <p>Tap the button below to view the full document</p>
+        <a class="view-btn" href="${productionUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+          View Full Document
+        </a>
+      </div>
+      
+      <div class="view-btn-wrap" id="desktopBtn">
+        <a class="view-btn" href="${productionUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener">View or Download on filesph.com</a>
       </div>
     </div>
 
@@ -513,6 +537,21 @@ app.get('/api/embed/:slug', async (req, res) => {
 
     <!-- No download/print/save controls in embed -->
   </div>
+  
+  <script>
+    // Detect mobile devices (touch devices or narrow screens)
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+        || (window.innerWidth <= 768 && 'ontouchstart' in window);
+    }
+    
+    // On mobile, show thumbnail preview instead of PDF iframe
+    if (isMobileDevice()) {
+      document.getElementById('pdfFrame').style.display = 'none';
+      document.getElementById('desktopBtn').style.display = 'none';
+      document.getElementById('mobilePreview').style.display = 'block';
+    }
+  </script>
 </body>
 </html>`
 
@@ -555,11 +594,12 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
 </html>`)
     }
 
-    const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
+    // Always use filesph.com for the "View Full Document" link in production
+    const productionUrl = 'https://filesph.com'
     const title = (document.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     const description = (document.description || `View and download ${document.name} on FilesPH`).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    const pageUrl = `${frontendUrl}/d/${encodeURIComponent(document.slug || slug)}`
-    const thumbnailUrl = document.thumbnailUrl || `${frontendUrl}/placeholder.jpg`
+    const pageUrl = `${productionUrl}/d/${encodeURIComponent(document.slug || slug)}`
+    const thumbnailUrl = document.thumbnailUrl || `${productionUrl}/placeholder.jpg`
 
     // Track embedded view
     document.views = (document.views || 0) + 1
@@ -816,6 +856,27 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
         height: 320px;
       }
     }
+    
+    /* Mobile preview styles - shown when PDF iframe doesn't work on mobile */
+    .mobile-preview {
+      display: none;
+      width: 100%;
+      text-align: center;
+      padding: 8px 0;
+    }
+    .mobile-preview img {
+      width: 100%;
+      max-width: 280px;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+    }
+    .mobile-preview p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
@@ -827,7 +888,8 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
     
     <h1 class="doc-title">${title}</h1>
     
-    <div class="iframe-wrap">
+    <!-- PDF iframe for desktop -->
+    <div class="iframe-wrap" id="desktopViewer">
       <iframe 
         class="doc-iframe" 
         src="/api/pdf/${encodeURIComponent(document.slug || slug)}?file=0" 
@@ -835,6 +897,12 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
         loading="lazy"
         allow="fullscreen"
       ></iframe>
+    </div>
+    
+    <!-- Mobile preview fallback - shown via JS on mobile devices -->
+    <div id="mobilePreview" class="mobile-preview">
+      <img src="${thumbnailUrl}" alt="${title}" onerror="this.src='${productionUrl}/placeholder.jpg'">
+      <p>Tap the button below to view the full document</p>
     </div>
     
     <div class="cta-section">
@@ -856,6 +924,20 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
       <a href="https://filesph.com" target="_blank" rel="noopener noreferrer">filesph.com</a>
     </footer>
   </div>
+  
+  <script>
+    // Detect mobile devices (touch devices or narrow screens)
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+        || (window.innerWidth <= 768 && 'ontouchstart' in window);
+    }
+    
+    // On mobile, show thumbnail preview instead of PDF iframe
+    if (isMobileDevice()) {
+      document.getElementById('desktopViewer').style.display = 'none';
+      document.getElementById('mobilePreview').style.display = 'block';
+    }
+  </script>
 </body>
 </html>`
 
