@@ -1,6 +1,11 @@
 # Proxy API requests to the backend service
 /api/*  https://filesph-backend.onrender.com/api/:splat  200
 
+# Serve static files explicitly
+/sitemap.xml  /sitemap.xml  200
+/sitemap*.xml  /sitemap*.xml  200
+/robots.txt  /robots.txt  200
+
 # SPA routes - explicit rewrites for all frontend routes
 /d/*  /index.html  200
 /embed/*  /index.html  200
