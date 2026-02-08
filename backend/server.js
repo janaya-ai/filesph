@@ -766,7 +766,17 @@ await fs.mkdir(uploadsDir, { recursive: true })
 try {
   await fs.access(dataFile)
 } catch {
-  await fs.writeFile(dataFile, JSON.stringify({ documents: [], categories: [] }, null, 2))
+  // Try to seed from repo copy if available
+  const repoDataPath = path.join(__dirname, 'data.json')
+  let seed = { documents: [], categories: [] }
+  try {
+    const repoData = await fs.readFile(repoDataPath, 'utf-8')
+    seed = JSON.parse(repoData)
+    console.log('Seeding persistent data.json from repo copy')
+  } catch {
+    console.log('No repo data.json found, starting empty')
+  }
+  await fs.writeFile(dataFile, JSON.stringify(seed, null, 2))
 }
 
 // Helper functions
