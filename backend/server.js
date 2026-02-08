@@ -538,33 +538,46 @@ app.get('/api/embed-preview/:slug', async (req, res) => {
     const frontendUrl = (process.env.FRONTEND_URL || 'https://filesph.com').split(',')[0].trim()
     const title = (document.name || 'Document').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-    const html = `<!doctype html>
+    const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} — preview</title>
-<style>
-  html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fff;color:#111}
-  .card{max-width:820px;margin:12px auto;border:1px solid #e6e6e6;border-radius:8px;overflow:hidden;box-shadow:0 1px 6px rgba(16,24,40,0.04)}
-  .head{padding:12px 16px;background:#fafafa;border-bottom:1px solid #eee}
-  .title{font-size:15px;font-weight:600;color:#0b1220}
-  .iframe-wrap{background:#000}
-  iframe{width:100%;height:360px;border:0;display:block}
-  .cta{display:block;padding:12px 16px;text-align:center;background:#fff}
-  .btn{display:inline-block;background:#2563eb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600}
-  @media (max-width:640px){ iframe{height:260px} .card{margin:6px} }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title} — FilesPH Document Preview</title>
+  <meta name="robots" content="noindex, nofollow">
+  <style>
+    html, body { background: #fff; margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
+    .container { max-width: 800px; margin: 32px auto 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 16px rgba(16,24,40,0.08); padding: 0 0 32px 0; display: flex; flex-direction: column; }
+    .header { display: flex; align-items: center; padding: 24px 32px 12px 32px; }
+    .logo { width: 32px; height: 32px; margin-right: 12px; }
+    .header-title { font-size: 18px; font-weight: 600; letter-spacing: 0.02em; }
+    .doc-title { text-align: center; font-size: 22px; font-weight: 700; margin: 18px 0 8px 0; color: #2563eb; }
+    .iframe-wrap { width: 100%; display: flex; justify-content: center; }
+    .doc-iframe { width: 100%; max-width: 760px; height: 520px; border: 1.5px solid #e6e6e6; border-radius: 8px; background: #fafafa; box-shadow: 0 1px 6px rgba(16,24,40,0.04); }
+    @media (max-width: 900px) { .container { max-width: 98vw; } .doc-iframe { max-width: 98vw; height: 400px; } }
+    @media (max-width: 640px) { .header { padding: 16px 12px 8px 12px; } .doc-title { font-size: 17px; } .doc-iframe { height: 260px; } }
+    .cta-section { margin: 32px 0 0 0; text-align: center; }
+    .cta-btn { display: inline-block; background: #2563eb; color: #fff; font-weight: 600; font-size: 18px; padding: 16px 36px; border-radius: 8px; text-decoration: none; box-shadow: 0 1px 4px rgba(37,99,235,0.08); transition: background 0.2s; }
+    .cta-btn:hover { background: #1d4ed8; }
+    .helper-text { font-size: 14px; color: #666; margin-top: 8px; }
+    .footer { text-align: center; font-size: 13px; color: #bbb; margin-top: 24px; }
+  </style>
 </head>
 <body>
-  <div class="card" role="region" aria-label="${title} preview">
-    <div class="head"><div class="title">${title}</div></div>
+  <div class="container">
+    <div class="header">
+      <img class="logo" src="https://filesph.com/favicon.png" alt="FilesPH logo" loading="lazy">
+      <span class="header-title">FilesPH Document Preview</span>
+    </div>
+    <div class="doc-title">${title}</div>
     <div class="iframe-wrap">
-      <iframe src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${title}" loading="lazy" allow="fullscreen"></iframe>
+      <iframe class="doc-iframe" src="/api/pdf/${encodeURIComponent(slug)}?file=0" title="${title}" loading="lazy" allow="fullscreen"></iframe>
     </div>
-    <div class="cta">
-      <a class="btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer">Open on FilesPH — View / Download</a>
+    <div class="cta-section">
+      <a class="cta-btn" href="${frontendUrl}/d/${encodeURIComponent(slug)}" target="_blank" rel="noopener noreferrer">View Full Document on FilesPH &rarr;</a>
+      <div class="helper-text">Open the full document to view all pages and download the file.</div>
     </div>
+    <div class="footer">filesph.com</div>
   </div>
 </body>
 </html>`
