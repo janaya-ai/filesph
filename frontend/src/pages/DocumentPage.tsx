@@ -578,6 +578,8 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                     fileUrl={currentFileUrl} 
                     viewerState={viewerState}
                     onPageChange={(page) => setViewerState(prev => ({ ...prev, currentPage: page }))}
+                    slug={document.slug}
+                    fileIndex={currentFileIndex}
                   />
                 )}
                 {currentFileType === 'image' && (
@@ -610,7 +612,7 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
             )}
             
             {/* Legacy document with files array (local uploads) */}
-            {!currentFileUrl && document.files && document.files.map(file => {
+            {!currentFileUrl && document.files && document.files.map((file, index) => {
               const legacyFileUrl = api.getFileUrl(file.path)
               return (
                 <div key={file.id} className="mb-4">
@@ -619,6 +621,8 @@ function DocumentPage({ embedded = false }: DocumentPageProps) {
                       fileUrl={legacyFileUrl} 
                       viewerState={viewerState}
                       onPageChange={(page) => setViewerState(prev => ({ ...prev, currentPage: page }))}
+                      slug={document.slug}
+                      fileIndex={index}
                     />
                   )}
                   {file.type === 'image' && (

@@ -14,9 +14,13 @@ interface PDFRendererProps {
   fileUrl: string
   viewerState: ViewerState
   onPageChange?: (page: number) => void
+  /** Document slug for fallback iframe URL (uses /api/pdf/:slug endpoint) */
+  slug?: string
+  /** File index for multi-file documents (used with slug for fallback URL) */
+  fileIndex?: number
 }
 
-export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFRendererProps) {
+export default function PDFRenderer({ fileUrl, viewerState, onPageChange, slug, fileIndex = 0 }: PDFRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [pages, setPages] = useState<number>(0)
@@ -165,14 +169,24 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
     // Show iframe fallback for CORS errors
     const isExternalUrl = fileUrl.startsWith('http://') || fileUrl.startsWith('https://')
     
+    // Use backend PDF endpoint when slug is available (works better on mobile)
+    // Falls back to proxied URL if slug not provided
+    const fallbackIframeSrc = slug 
+      ? `${API_BASE}/api/pdf/${encodeURIComponent(slug)}?file=${fileIndex}`
+      : `${API_BASE}/api/proxy?url=${encodeURIComponent(fileUrl)}`
+    
+    const downloadUrl = slug
+      ? `${API_BASE}/api/download/${encodeURIComponent(slug)}/${fileIndex}`
+      : fileUrl
+    
     return (
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {isExternalUrl ? (
           <>
-            {/* Try embedded PDF viewer first */}
+            {/* Try embedded PDF viewer first - use backend proxy for better mobile support */}
             <div className="w-full" style={{ height: '80vh' }}>
               <iframe
-                src={fileUrl}
+                src={fallbackIframeSrc}
                 className="w-full h-full border-0"
                 title="PDF Document"
               />
@@ -183,7 +197,7 @@ export default function PDFRenderer({ fileUrl, viewerState, onPageChange }: PDFR
                 If the PDF doesn't display above, you can view or download it directly:
               </p>
               <a
-                href={fileUrl}
+                href={downloadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"

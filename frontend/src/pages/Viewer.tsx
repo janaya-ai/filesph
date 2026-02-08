@@ -456,6 +456,8 @@ export default function Viewer({ embedded }: ViewerProps) {
                   onPageChange={(page) =>
                     setViewerState(prev => ({ ...prev, currentPage: page }))
                   }
+                  slug={document.slug}
+                  fileIndex={currentFileIndex}
                 />
               )}
               {currentFileType === 'image' && (
@@ -488,7 +490,7 @@ export default function Viewer({ embedded }: ViewerProps) {
           )}
 
           {/* Legacy document with files array */}
-          {!currentFileUrl && document.files && document.files.map((file) => (
+          {!currentFileUrl && document.files && document.files.map((file, index) => (
             <div key={file.id} className="mb-8">
               {file.type === 'pdf' && (
                 <PDFRenderer
@@ -497,6 +499,8 @@ export default function Viewer({ embedded }: ViewerProps) {
                   onPageChange={(page) =>
                     setViewerState(prev => ({ ...prev, currentPage: page }))
                   }
+                  slug={document.slug}
+                  fileIndex={index}
                 />
               )}
               {file.type === 'image' && (
