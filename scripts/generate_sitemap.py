@@ -25,7 +25,7 @@ Usage:
 
 License: MIT
 Author: filesph.com team
-Contact: admin@filesph.com (update this email)
+Contact: admin@filesph.com (TODO: Update this email to your actual contact)
 """
 
 import os
@@ -53,6 +53,7 @@ DEFAULT_MAX_PAGES = 5000
 DEFAULT_DELAY = 0.5
 DEFAULT_OUTPUT = "frontend/public/sitemap.xml"
 MAX_URLS_PER_SITEMAP = 50000
+# TODO: Update the contact email to your actual contact
 USER_AGENT = "filesph-sitemap-bot/1.0 (+https://filesph.com; admin@filesph.com)"
 
 # Configure logging
