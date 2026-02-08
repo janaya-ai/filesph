@@ -33,7 +33,7 @@ import sys
 import time
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, urlunparse
 from collections import deque
 import xml.etree.ElementTree as ET
@@ -129,15 +129,16 @@ def extract_links(html, base_url):
             if is_same_origin(normalized, base_url):
                 links.add(normalized)
         
-        # Extract asset URLs from img, link[rel=icon], etc.
-        for tag in soup.find_all(['img', 'link'], src=True):
-            src = tag.get('src') or tag.get('href')
+        # Extract asset URLs from img tags
+        for tag in soup.find_all('img', src=True):
+            src = tag.get('src')
             if src:
                 absolute_url = urljoin(base_url, src)
                 normalized = normalize_url(absolute_url)
                 if is_same_origin(normalized, base_url) and is_asset_url(normalized):
                     links.add(normalized)
         
+        # Extract asset URLs from link tags (icons, etc.)
         for tag in soup.find_all('link', href=True):
             href = tag['href']
             if 'icon' in tag.get('rel', []):
@@ -325,7 +326,7 @@ def generate_sitemap_index(urls, url_metadata, output_path, dry_run=False):
         loc.text = f"{base_url_str}/{sitemap_file}"
         
         lastmod = ET.SubElement(sitemap_elem, 'lastmod')
-        lastmod.text = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        lastmod.text = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00')
     
     # Write index file
     tree = ET.ElementTree(sitemapindex)
