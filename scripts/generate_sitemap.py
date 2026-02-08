@@ -13,7 +13,7 @@ Usage:
         BASE_URL    - Base URL to crawl (default: https://filesph.com)
         MAX_PAGES   - Maximum pages to crawl (default: 5000)
         DELAY       - Delay between requests in seconds (default: 0.5)
-        OUTPUT      - Output file path (default: public/sitemap.xml)
+        OUTPUT      - Output file path (default: frontend/public/sitemap.xml)
     
     CLI flags:
         --base-url URL      Override BASE_URL
@@ -50,7 +50,7 @@ except ImportError:
 DEFAULT_BASE_URL = "https://filesph.com"
 DEFAULT_MAX_PAGES = 5000
 DEFAULT_DELAY = 0.5
-DEFAULT_OUTPUT = "public/sitemap.xml"
+DEFAULT_OUTPUT = "frontend/public/sitemap.xml"
 MAX_URLS_PER_SITEMAP = 50000
 USER_AGENT = "filesph-sitemap-bot/1.0 (+https://filesph.com; admin@filesph.com)"
 

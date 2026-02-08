@@ -321,7 +321,7 @@ The generator can be configured via environment variables or command-line flags:
 - `BASE_URL` - Base URL to crawl (default: `https://filesph.com`)
 - `MAX_PAGES` - Maximum pages to crawl (default: `5000`)
 - `DELAY` - Delay between requests in seconds (default: `0.5`)
-- `OUTPUT` - Output file path (default: `public/sitemap.xml`)
+- `OUTPUT` - Output file path (default: `frontend/public/sitemap.xml`)
 
 **Command-line Usage:**
 ```bash
@@ -367,8 +367,8 @@ You can also trigger the workflow manually from the GitHub Actions tab with cust
 - `scripts/generate_sitemap.py` - Main generator script
 - `scripts/requirements.txt` - Python dependencies
 - `.github/workflows/generate-sitemap.yml` - Automation workflow
-- `public/sitemap.xml` - Generated sitemap file
-- `public/robots.txt` - References the sitemap
+- `frontend/public/sitemap.xml` - Generated sitemap file
+- `frontend/public/robots.txt` - References the sitemap
 
 ## 📝 License
 

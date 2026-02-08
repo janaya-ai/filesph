@@ -47,20 +47,20 @@ jobs:
           BASE_URL: ${{ github.event.inputs.base_url || 'https://filesph.com' }}
           MAX_PAGES: ${{ github.event.inputs.max_pages || '5000' }}
           DELAY: '0.5'
-          OUTPUT: 'public/sitemap.xml'
+          OUTPUT: 'frontend/public/sitemap.xml'
         run: |
           python scripts/generate_sitemap.py
       
       - name: Check for changes
         id: check_changes
         run: |
-          git diff --quiet public/sitemap*.xml || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet frontend/public/sitemap*.xml || echo "changed=true" >> $GITHUB_OUTPUT
       
       - name: Commit and push sitemap
         if: steps.check_changes.outputs.changed == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add public/sitemap*.xml
+          git add frontend/public/sitemap*.xml
           git commit -m "chore: update sitemap.xml [skip ci]"
           git push
