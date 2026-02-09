@@ -2765,59 +2765,62 @@ app.get('/api/search', async (req, res) => {
   }
 })
 
-// SEO: Generate XML sitemap
+// SEO: Generate XML sitemap (safe version)
 app.get('/sitemap.xml', async (req, res) => {
   try {
-    const data = await readData()
+    // Read your JSON “database”
+    const data = await readData() || {}  // fallback if readData() fails
+
     const baseUrl = process.env.BASE_URL || 'http://localhost:5173'
-    
+
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    
+
     // Homepage
     xml += '  <url>\n'
     xml += `    <loc>${baseUrl}/</loc>\n`
     xml += '    <changefreq>daily</changefreq>\n'
     xml += '    <priority>1.0</priority>\n'
     xml += '  </url>\n'
-    
-    // Categories (if exist)
+
+    // Categories (if any)
     const categories = data.categories || []
     categories.forEach(cat => {
+      const lastmod = cat.updatedAt || cat.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/category/${cat.slug}</loc>\n`
-      const lastmod = cat.updatedAt ? cat.updatedAt.split('T')[0] : cat.createdAt.split('T')[0]
-      xml += `    <lastmod>${lastmod}</lastmod>\n`
+      xml += `    <lastmod>${lastmod.split('T')[0]}</lastmod>\n`
       xml += '    <changefreq>weekly</changefreq>\n'
       xml += '    <priority>0.9</priority>\n'
       xml += '  </url>\n'
     })
-    
-    // Agency pages
+
+    // Agencies
     const agencies = data.agencies || []
     agencies.forEach(agency => {
+      const lastmod = agency.updatedAt || agency.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/agency/${agency.slug}</loc>\n`
-      const lastmod = agency.updatedAt ? agency.updatedAt.split('T')[0] : agency.createdAt.split('T')[0]
-      xml += `    <lastmod>${lastmod}</lastmod>\n`
+      xml += `    <lastmod>${lastmod.split('T')[0]}</lastmod>\n`
       xml += '    <changefreq>weekly</changefreq>\n'
       xml += '    <priority>0.9</priority>\n'
       xml += '  </url>\n'
     })
-    
-    // Document pages
-    data.documents.forEach(doc => {
+
+    // Documents
+    const documents = data.documents || []
+    documents.forEach(doc => {
+      const lastmod = doc.updatedAt || doc.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/d/${doc.slug}</loc>\n`
-      const lastmod = doc.updatedAt ? doc.updatedAt.split('T')[0] : doc.createdAt.split('T')[0]
-      xml += `    <lastmod>${lastmod}</lastmod>\n`
+      xml += `    <lastmod>${lastmod.split('T')[0]}</lastmod>\n`
       xml += '    <changefreq>monthly</changefreq>\n'
       xml += '    <priority>0.8</priority>\n'
       xml += '  </url>\n'
     })
 
-    xml += '</urlset>' // Close XML
-    
+    xml += '</urlset>'
+
     res.header('Content-Type', 'application/xml')
     res.send(xml)
   } catch (err) {
@@ -2825,7 +2828,6 @@ app.get('/sitemap.xml', async (req, res) => {
     res.status(500).send('Error generating sitemap')
   }
 })
-
 // SEO: Generate robots.txt
 app.get('/robots.txt', (req, res) => {
   const baseUrl = process.env.BASE_URL || 'http://localhost:5173'
