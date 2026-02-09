@@ -2765,13 +2765,11 @@ app.get('/api/search', async (req, res) => {
   }
 })
 
-// SEO: Generate XML sitemap (safe version)
+// SEO: Generate XML sitemap (safe & fixed)
 app.get('/sitemap.xml', async (req, res) => {
   try {
-    // Read your JSON “database”
-    const data = await readData() || {}  // fallback if readData() fails
-
-    const baseUrl = process.env.BASE_URL || 'http://localhost:5173'
+    const data = await readData() || {}
+    const baseUrl = process.env.BASE_URL || 'https://filesph.com'
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -2783,9 +2781,10 @@ app.get('/sitemap.xml', async (req, res) => {
     xml += '    <priority>1.0</priority>\n'
     xml += '  </url>\n'
 
-    // Categories (if any)
+    // Categories
     const categories = data.categories || []
     categories.forEach(cat => {
+      if (!cat.slug) return  // skip invalid categories
       const lastmod = cat.updatedAt || cat.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/category/${cat.slug}</loc>\n`
@@ -2798,6 +2797,7 @@ app.get('/sitemap.xml', async (req, res) => {
     // Agencies
     const agencies = data.agencies || []
     agencies.forEach(agency => {
+      if (!agency.slug) return  // skip invalid
       const lastmod = agency.updatedAt || agency.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/agency/${agency.slug}</loc>\n`
@@ -2810,6 +2810,7 @@ app.get('/sitemap.xml', async (req, res) => {
     // Documents
     const documents = data.documents || []
     documents.forEach(doc => {
+      if (!doc.slug) return  // skip invalid
       const lastmod = doc.updatedAt || doc.createdAt || new Date().toISOString()
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/d/${doc.slug}</loc>\n`
