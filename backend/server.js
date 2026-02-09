@@ -2781,11 +2781,25 @@ app.get('/sitemap.xml', async (req, res) => {
     xml += '    <priority>1.0</priority>\n'
     xml += '  </url>\n'
     
+    // Categories (if exist)
+    const categories = data.categories || []
+    categories.forEach(cat => {
+      xml += '  <url>\n'
+      xml += `    <loc>${baseUrl}/category/${cat.slug}</loc>\n`
+      const lastmod = cat.updatedAt ? cat.updatedAt.split('T')[0] : cat.createdAt.split('T')[0]
+      xml += `    <lastmod>${lastmod}</lastmod>\n`
+      xml += '    <changefreq>weekly</changefreq>\n'
+      xml += '    <priority>0.9</priority>\n'
+      xml += '  </url>\n'
+    })
+    
     // Agency pages
     const agencies = data.agencies || []
     agencies.forEach(agency => {
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/agency/${agency.slug}</loc>\n`
+      const lastmod = agency.updatedAt ? agency.updatedAt.split('T')[0] : agency.createdAt.split('T')[0]
+      xml += `    <lastmod>${lastmod}</lastmod>\n`
       xml += '    <changefreq>weekly</changefreq>\n'
       xml += '    <priority>0.9</priority>\n'
       xml += '  </url>\n'
@@ -2795,18 +2809,20 @@ app.get('/sitemap.xml', async (req, res) => {
     data.documents.forEach(doc => {
       xml += '  <url>\n'
       xml += `    <loc>${baseUrl}/d/${doc.slug}</loc>\n`
-      xml += `    <lastmod>${doc.createdAt.split('T')[0]}</lastmod>\n`
+      const lastmod = doc.updatedAt ? doc.updatedAt.split('T')[0] : doc.createdAt.split('T')[0]
+      xml += `    <lastmod>${lastmod}</lastmod>\n`
       xml += '    <changefreq>monthly</changefreq>\n'
       xml += '    <priority>0.8</priority>\n'
       xml += '  </url>\n'
     })
-    
-    xml += '</urlset>'
+
+    xml += '</urlset>' // Close XML
     
     res.header('Content-Type', 'application/xml')
     res.send(xml)
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to generate sitemap' })
+  } catch (err) {
+    console.error('Sitemap error:', err)
+    res.status(500).send('Error generating sitemap')
   }
 })
 
