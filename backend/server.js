@@ -436,14 +436,7 @@ app.get('/api/embed/:slug', async (req, res) => {
     const thumbnailUrl = /^https?:\/\//i.test(rawThumbnailUrl) 
       ? rawThumbnailUrl.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       : `${PRODUCTION_URL}/placeholder.jpg`
-app.get("/debug-data", async (req, res) => {
-  try {
-    const data = await readData()
-    res.json(data)  // This will show everything
-  } catch (err) {
-    res.status(500).send(err.message)
-  }
-})
+
     // Track embedded view
     document.views = (document.views || 0) + 1
     writeData(data).catch(() => {})
