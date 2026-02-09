@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://filesph-backend.onrender.com/sitemap.xml
+Sitemap: https://filesph.com/sitemap.xml
